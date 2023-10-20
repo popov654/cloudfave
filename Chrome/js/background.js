@@ -878,3 +878,227 @@ function findBookmarkByPath(path, url) {
       return null
    }
 }
+
+const Tree = {
+   getSubTree: function(root, path) {
+      if (path.length == 0) {
+         return root;
+      }
+      path = path.slice();
+      var list = root.children;
+      while (path.length > 0) {
+        var directory = path.shift();
+        var found = false;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].title == directory) {
+               if (path.length == 0 && list[i].children) {
+                  return list[i];
+               } else if (path.length == 0) {
+                  return null;
+               }
+               var list = list[i].children;
+               found = true;
+               break;
+            }
+        }
+        if (!found) break;
+      }
+      return null;
+   },
+   getDirectoryStructure: function(root) {
+
+      function filterTree(root) {
+         var new_list = root.children.filter(el => el.children);
+         for (var i = 0; i < new_list.length; i++) {
+            var copy = {};
+            Object.assign(copy, new_list[i]);
+            new_list[i] = copy;
+            filterTree(new_list[i]);
+         }
+         root.children = new_list;
+         return new_list;
+      }
+
+      var copy = {};
+      Object.assign(copy, root);
+      return filterTree(copy);
+   },
+   walkTree: function(list, callback) {
+      for (var i = 0; i < list.length; i++) {
+         callback(list[i]);
+         if (list[i].children) {
+            this.walkTree(list[i].children, callback);
+         }
+      }
+   },
+   insert: function(root, element, path = []) {
+      if (!element || !element.title) return;
+      var subTree = getSubTree(root, path);
+      if (subTree == null) return;
+      if (exists(subTree.children, element)) return;
+      var id = findMaxId([root]) + 1;
+      var index = findMaxIndex(subTree.children) + 1;
+      element = { id, dateAdded: Date.now(), index, ...element };
+      if (!element.url) element.children = [];
+      subTree.children.push(element);
+   },
+    modify: function(root, url, details, path = []) {
+      var subTree = getSubTree(root, path);
+      if (subTree == null) return;
+      for (var i = 0; i < subTree.children.length; i++) {
+         if (subTree.children[i].url == url) {
+            if (details.index !== undefined) {
+                 calculateIndex(subTree.children, i, details);
+            }
+            for (var key of ['title', 'url', 'index']) {
+               if (details[key] !== undefined) {
+                  subTree.children[i][key] = details[key];
+               }
+            }
+            break;
+         }
+      }
+   },
+   move: function(root, url, pathSrc, pathDst) {
+      if (!pathSrc || !pathDst || JSON.stringify(pathSrc) == JSON.stringify(pathDst)) {
+            return;
+      }
+      var subTreeSrc = this.getSubTree(root, pathSrc);
+      var subTreeDst = this.getSubTree(root, pathDst);
+      if (subTreeSrc == null || subTreeDst == null) {
+         return;
+      }
+      var element = null;
+      for (var i = 0; i < subTreeSrc.children.length; i++) {
+         if (subTreeSrc.children[i].url == url) {
+             element = subTreeSrc.children.splice(i--, 1)[0];
+         }
+      }
+      if (subTreeDst == null) return;
+      var index = this.findMaxIndex(subTreeDst.children);
+      element = { ...element, index };
+      subTreeDst.children.push(element);
+   },
+   remove: function(root, url, path = []) {
+      var subTree = this.getSubTree(root, path);
+      if (subTree == null) return;
+      for (var i = 0; i < subTree.children.length; i++) {
+         if (subTree.children[i].url == url) {
+            subTree.children.splice(i--, 1);
+         }
+      }
+   },
+   merge: function(dstRoot, srcRoot) {
+      this.mergeSubtree(dstRoot, srcRoot, dstRoot);
+   },
+   mergeSubtree: function(dstRoot, srcRoot, root) {
+      if (!srcRoot.children || !dstRoot.children) return;
+      for (var i = 0; i < srcRoot.children.length; i++) {
+        var el = srcRoot.children[i];
+        var dst = this.findNode(dstRoot.children, el);
+        if (!dst) {
+            var _id = this.findMaxId(root.children) + 1;
+            el.id = _id++;
+            if (el.children) {
+               this.walkTree(el.children, (el) => {
+                  el.id = _id++;
+               });
+            }
+            this.insertByDate(dstRoot.children, el);
+        } else if (el.children) {
+            this.mergeSubtree(dst, el, root);
+        }
+      }
+   },
+   insertByDate: function(list, el) {
+      if (!el.dateAdded) {
+         list.push(el);
+         return;
+      }
+      var pos = 0;
+      while (pos < list.length-1 && list[pos+1].dateAdded <= el.dateAdded) {
+         pos++;
+      }
+      list.splice(pos, 0, el);
+   },
+   calculateIndex: function(list, pos, details) {
+      if (list.length == 0 || list.length == details.folder_size || details.index === undefined) {
+         return;
+      }
+      var found = false;
+      if (details.before) {
+         var pos = 0
+         while (pos < list.length && !(list[pos].url == details.before.url && list[pos].title == details.before.title)) {
+            pos++;
+         }
+         if (pos < list.length && list[pos].url == details.before.url && list[pos].title == details.before.title) {
+            details.index = pos+1;
+            found = true;
+         }
+      }
+      if (!found && details.after) {
+         var pos = 0
+         while (pos < list.length && !(list[pos].url == details.after.url && list[pos].title == details.after.title)) {
+            pos++;
+         }
+         if (pos < list.length && list[pos].url == details.after.url && list[pos].title == details.after.title) {
+            details.index = pos;
+            found = true;
+         }
+      }
+      if (!found) {
+         details.index = parseInt(details.index) < pos ? 0 : list.length-1;
+      } else {
+         details.index = Math.max(0, Math.min(list.length-1, parseInt(details.index)));
+      }
+      if (details.before || details.after) {
+         if (details.before && details.index > 0 && !this.nodeEquals(list[details.index-1], details.before)) {
+            details.before = { url: list[details.index-1].url, title: list[details.index-1].title };
+         }
+         if (details.after && details.index < list.length-1 && !this.nodeEquals(list[details.index], details.after)) {
+            details.after = { url: list[details.index].url, title: list[details.index].title };
+         }
+      }
+   },
+   nodeEquals: function(el1, el2) {
+      return el1.url == el2.url && el1.title == el2.title;
+   },
+   nodeExists: function(list, element) {
+      for (var i = 0; i < list.length; i++) {
+         if (element.url && list[i].url == element.url || !element.url && list[i].title == element.title) {
+            return true;
+         }
+      }
+      return false;
+   },
+   findNode: function(list, element) {
+      for (var i = 0; i < list.length; i++) {
+        if (element.url && list[i].url == element.url || !element.url && list[i].title == element.title) {
+            return list[i];
+        }
+      }
+      return null;
+   },
+   findMaxId: function(items) {
+      var maxId = 0;
+      walkTree(items, (el) => {
+         var id = parseInt(el.id);
+         if (isNaN(id)) return;
+         if (id > maxId) {
+            maxId = id;
+         }
+      });
+      return maxId;
+   },
+   findMaxIndex: function(items) {
+      var maxIndex = 0;
+      items.forEach((el) => {
+         var index = parseInt(el.index);
+         if (isNaN(index)) return;
+         if (index > maxIndex) {
+            maxIndex = index;
+         }
+      });
+      return maxIndex;
+   }
+}
