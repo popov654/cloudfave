@@ -11,6 +11,7 @@ var folderId = -1;
 var profiles = []
 
 var lastSync = s.lastSync || 0;
+var syncInterval = s.syncInterval || 300000;
    
 var browser = browser || chrome
 var extension = browser.extension || browser.runtime
@@ -28,15 +29,17 @@ window.addEventListener("load", function(){
 }, false);
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync'], function(result) {
+   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], function(result) {
       accessToken = result.access_token || null
       profileId = result.profile_id || null
       folderId = result.folder_id || -1
       lastSync = result.last_sync || 0
+      syncInterval = result.sync_interval || 300000
       s.accessToken = accessToken
       s.profileId = profileId
       s.folderId = folderId
       s.lastSync = lastSync
+      s.syncInterval = syncInterval
       
       if (callback) callback()
    });
