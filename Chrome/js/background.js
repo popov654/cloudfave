@@ -434,13 +434,11 @@ function compareWithSnapshot() {
    
       return new Promise(function(resolve) {
    
-         var outer = null
-         
          var map = {}
          
          setTimeout(function() {
             
-            outer = snapshot[0].children
+            var outer = snapshot[0].children
             
             compareItem(outer, 0, [], outer.slice())
             
@@ -669,16 +667,17 @@ function sync() {
    var _last = lastSync
    syncing = true
    pathCache = {}
-   return compareWithSnapshot().then(log => { changesToSend = log })
-     .then(applyRemoteUpdates)
-     .then(() => { lastSync = Date.now() + 1000 })
-     .then(() => { sendUpdates(changesToSend) })
-     .then(() => {
-        saveSnapshot()
-        browser.storage.local.set({ last_sync: lastSync })
-        syncing = false
-     })
-     .catch(() => { lastSync = _last; syncing = false })
+   return compareWithSnapshot()
+      .then(log => { changesToSend = log})
+      .then(applyRemoteUpdates)
+      .then(() => { lastSync = Date.now() + 1000 })
+      .then(() => { sendUpdates(changesToSend) })
+      .then(() => {
+         saveSnapshot()
+         browser.storage.local.set({ last_sync: lastSync })
+         syncing = false
+      })
+      .catch(() => { lastSync = _last; syncing = false })
 }
 
 function applyRemoteUpdates() {
