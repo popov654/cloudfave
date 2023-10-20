@@ -816,13 +816,10 @@ function findFolderByPath(path) {
    return new Promise(function(resolve) {
       browser.bookmarks.getTree(function(tree){
          folder = getRootFolder(tree)
-
-         browser.bookmarks.getSubTree(folder.id, function(result) {
-            if (folderId > -1) {
-               path = path.slice(1)
-            }
-            resolve(findItem(folder.children, path))
-         })
+         if (folderId > -1) {
+            path = path.slice(1)
+         }
+         resolve(findItem(folder.children, path))
       })
    })
    
@@ -855,13 +852,10 @@ function findBookmarkByPath(path, url) {
       return new Promise(function(resolve) {
          browser.bookmarks.getTree(function(tree){
             folder = getRootFolder(tree)
-
-            browser.bookmarks.getSubTree(folder.id, function(result) {
-               if (folderId > -1) {
-                  path = path.slice(1)
-               }
-               resolve(findItem(folder.children, path, url))
-            })
+            if (folderId > -1) {
+               path = path.slice(1)
+            }
+            resolve(findItem(folder.children, path, url))
          })
       })
    })(path)
