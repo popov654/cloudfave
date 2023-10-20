@@ -516,7 +516,7 @@ function setBeforeAndAfter(list, pos, details) {
    var i = parseInt(details.index)
    details.folder_size = list.length
    details.before = i > 0 ? { url: list[i-1].url, title: list[i-1].title } : null
-   details.after = i < list.length-1 ? { url: list[i+1].url, title: list[i+1].title } : null
+   details.after = i < list.length-1 ? { url: list[i].url, title: list[i].title } : null
 }
 
 function checkForNewItems() {
