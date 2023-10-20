@@ -438,10 +438,10 @@ function compareWithSnapshot() {
             browser.storage.local.get(['snapshot'], function(res) {
                var root = folderId > -1 ? res.snapshot[0].children[folderId] : res.snapshot[0]
                outer = root.children
-               compareItem(outer, 0, [])
+               compareItem(outer, 0, [], outer.slice())
             })
             
-            function compareItem(list, i, path) {
+            function compareItem(list, i, path, _list) {
                
                if (list.length == 0) return
                   
@@ -453,9 +453,9 @@ function compareWithSnapshot() {
                   else if (i == 1 && list[i].parentId == 0) {
                      title = 'Other bookmarks'
                   }
-                  compareItem(list[i].children, 0, path.concat(title))
+                  compareItem(list[i].children, 0, path.concat(title), list[i].children.slice())
                   if (i+1 < list.length) {
-                     compareItem(list, i+1, path)
+                     compareItem(list, i+1, path, _list)
                   } else {
                      if (list == outer) resolve(log)
                   }
@@ -482,18 +482,22 @@ function compareWithSnapshot() {
                                  pos--
                               }
                               var details = { path: new_path, index: result[0].index }
-                              setBeforeAndAfter(list, i, details)
+                              setBeforeAndAfter(_list, i, details)
                               log.splice(pos, 0, { action: 'modify', url: list[i].url, path: path, details: details })
+                              var el = _list.splice(i, 1)[0]
+                              _list.splice(details.index, 0, el)
                            })
                         }
                         else if (result[0].index != list[i].index) {
                            var details = { index: result[0].index }
-                           setBeforeAndAfter(list, i, details)
+                           setBeforeAndAfter(_list, i, details)
                            log.push({ action: 'modify', url: list[i].url, path: path, details: details })
+                           var el = _list.splice(i, 1)[0]
+                           _list.splice(details.index, 0, el)
                         }
                      }
                      if (i+1 < list.length) {
-                        compareItem(list, i+1, path)
+                        compareItem(list, i+1, path, _list)
                      } else {
                         if (list == outer) resolve(log)
                      }
@@ -513,8 +517,6 @@ function setBeforeAndAfter(list, pos, details) {
    details.folder_size = list.length
    details.before = i > 0 ? { url: list[i-1].url, title: list[i-1].title } : null
    details.after = i < list.length-1 ? { url: list[i+1].url, title: list[i+1].title } : null
-   var el = list.splice(pos, 1)[0]
-   list.splice(i, 0, el)
 }
 
 function checkForNewItems() {
