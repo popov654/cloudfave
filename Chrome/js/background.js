@@ -604,7 +604,7 @@ function getFullPath(parentId) {
    })
 }
 
-var timer = setInterval(sync, 300000)
+var timer = setInterval(() => sync().catch(e => { console.log(e) }), syncInterval)
 
 var changesToSend = []
 var syncing = false
