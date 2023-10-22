@@ -316,6 +316,12 @@ window.addEventListener("DOMContentLoaded", function() {
       })
    }
    
+   document.getElementById('profileEditName').onkeydown = function(e) {
+      if (e.key == 'Enter') {
+         document.getElementById('nameEditBtn').click()
+      }
+   }
+   
    document.getElementById('profileEditName').onblur = function() {
       var self = this
       setTimeout(function() {
