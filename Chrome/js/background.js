@@ -428,18 +428,28 @@ function createSnapshotIfNull() {
 
 function compareWithSnapshot() {
    
-   return createSnapshotIfNull().then(checkForNewItems).then(log => {
+   return createSnapshotIfNull().then(checkForNewItems).then(res => {
+      
+      var { log, snapshot } = res
    
       return new Promise(function(resolve) {
    
          var outer = null
          
+         var map = {}
+         
          setTimeout(function() {
-            browser.storage.local.get(['snapshot'], function(res) {
-               var root = folderId > -1 ? res.snapshot[0].children[folderId] : res.snapshot[0]
-               outer = root.children
-               compareItem(outer, 0, [], outer.slice())
-            })
+            
+            outer = snapshot[0].children
+            
+            compareItem(outer, 0, [], outer.slice())
+            
+            function findIndexByURL(list, url) {
+               for (var i = 0; i < list.length; i++) {
+                  if (list[i].url == url) return i
+               }
+               return -1
+            }
             
             function compareItem(list, i, path, _list) {
                
@@ -465,6 +475,8 @@ function compareWithSnapshot() {
                try {
                   browser.bookmarks.get(list[i].id, function(result) {
                      if (browser.runtime.lastError || result == null) {
+                        var pos = findIndexByURL(list[i].url, _list)
+                        _list.splice(pos, 1)
                         log.push({ action: 'delete', url: list[i].url, path: path })
                      } else {
                         if (result[0].title != list[i].title) {
@@ -474,6 +486,8 @@ function compareWithSnapshot() {
                            log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
                         }
                         if (result[0].parentId != list[i].parentId) {
+                           var pathStr = path.join('>')
+                           if (!map[pathStr]) map[pathStr] = [[], []]
                            var new_path = []
                            getFullPath(result[0].parentId).then(function(new_path) {
                               var pos = log.length
@@ -482,23 +496,49 @@ function compareWithSnapshot() {
                                  pos--
                               }
                               var details = { path: new_path, index: result[0].index }
-                              setBeforeAndAfter(_list, i, details)
+                              
+                              var oldIndex = findIndexByURL(_list, list[i].url)
+                              setBeforeAndAfter(_list, oldIndex, details)
                               log.splice(pos, 0, { action: 'modify', url: list[i].url, path: path, details: details })
-                              var el = _list.splice(i, 1)[0]
+                              
+                              var el = _list.splice(oldIndex, 1)[0]
                               _list.splice(details.index, 0, el)
+                              
+                              map[pathStr][1].push({ url: list[i].url, details })
                            })
                         }
                         else if (result[0].index != list[i].index) {
+                           var pathStr = path.join('>')
+                           if (!map[pathStr]) map[pathStr] = [[], []]
                            var details = { index: result[0].index }
-                           setBeforeAndAfter(_list, i, details)
-                           log.push({ action: 'modify', url: list[i].url, path: path, details: details })
-                           var el = _list.splice(i, 1)[0]
+                           
+                           var oldIndex = findIndexByURL(_list, list[i].url)
+                           setBeforeAndAfter(_list, oldIndex, details)
+                           //log.push({ action: 'modify', url: list[i].url, path: path, details: details })
+                           
+                           var el = _list.splice(oldIndex, 1)[0]
                            _list.splice(details.index, 0, el)
+                           
+                           if (details.index > oldIndex) {
+                              map[pathStr][1].push({ url: list[i].url, details })
+                           } else if (details.index < oldIndex) {
+                              map[pathStr][0].push({ url: list[i].url, details })
+                           }
                         }
                      }
                      if (i+1 < list.length) {
                         compareItem(list, i+1, path, _list)
                      } else {
+                        // Directory end
+                        var pathStr = path.join('>')
+                        if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
+                           var index = map[pathStr][0].length <= map[pathStr][1].length ? 0 : 1
+                           for (var j = 0; j < map[pathStr][index].length; j++) {
+                              log.push({ action: 'modify', url: map[pathStr][index][j].url, path: path, details: map[pathStr][index][j].details })
+                           }
+                           delete map[pathStr]
+                        }
+                        
                         if (list == outer) resolve(log)
                      }
                   })
@@ -542,10 +582,13 @@ function checkForNewItems() {
                         if (log && log instanceof Array) {
                            log.push({ action: 'add', url: element.url, path, details: { title: element.title, index: element.index }})
                         }
+                        Tree.insert(snapshot[0], element, path)
                      }
                   })
                }, function() {
-                  resolve(log)
+                  setTimeout(function() {
+                     resolve({ log, snapshot })
+                   }, 50)
                })
             })
          })
@@ -933,22 +976,23 @@ const Tree = {
    },
    insert: function(root, element, path = []) {
       if (!element || !element.title) return;
-      var subTree = getSubTree(root, path);
+      var subTree = this.getSubTree(root, path);
       if (subTree == null) return;
-      if (exists(subTree.children, element)) return;
-      var id = findMaxId([root]) + 1;
-      var index = findMaxIndex(subTree.children) + 1;
-      element = { id, dateAdded: Date.now(), index, ...element };
+      if (this.nodeExists(subTree.children, element)) return;
+      var id = this.findMaxId([root]) + 1;
+      var index = this.findMaxIndex(subTree.children) + 1;
+      element.index = index;
+      element = { id, dateAdded: Date.now(), ...element };
       if (!element.url) element.children = [];
       subTree.children.push(element);
    },
-    modify: function(root, url, details, path = []) {
-      var subTree = getSubTree(root, path);
+   modify: function(root, url, details, path = []) {
+      var subTree = this.getSubTree(root, path);
       if (subTree == null) return;
       for (var i = 0; i < subTree.children.length; i++) {
          if (subTree.children[i].url == url) {
             if (details.index !== undefined) {
-                 calculateIndex(subTree.children, i, details);
+               this.calculateIndex(subTree.children, i, details);
             }
             for (var key of ['title', 'url', 'index']) {
                if (details[key] !== undefined) {
