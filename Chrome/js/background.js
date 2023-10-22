@@ -698,6 +698,9 @@ function applyRemoteUpdates() {
          }
       })
    })
+   .catch(e => {
+      console.log(e)
+   })
 }
 
 function sendUpdates(log) {
