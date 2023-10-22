@@ -749,12 +749,16 @@ function executeAddBookmark(log, index, callback) {
       if (data.details.index > folder.children.length) {
          data.details.index = folder.children.length
       }
+      if (folder.children.find(el => (el.title == data.details.title && el.url == data.url))) {
+         if (callback) callback()
+         return
+      }
       browser.bookmarks.create(
          {
             parentId: folder.id,
             title: data.details.title,
             url: data.url,
-            index: data.details.index
+            index: folder.children.length
          },
          function(bookmark) {
             console.log("Added remote bookmark: " + bookmark.url);
