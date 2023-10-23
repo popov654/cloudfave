@@ -151,28 +151,40 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    }
    else if (request.operation == 'sync') {
       sync().then(() => {
-         sendResponse({ success: 1 })
+         sendResponse(1)
       }).catch(() => {
-         sendResponse({ error: 1 })
+         sendResponse(0)
+      })
+   }
+   else if (request.operation == 'logout') {
+      logout(() => {
+         sendResponse(1)
       })
    }
    return true
 })
+
+function logout(callback) {
+   var xhr = new XMLHttpRequest()
+   xhr.open('GET', origin + '/logout?ssid=' + accessToken, true)
+   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
+   xhr.onload = function() {
+      accessToken = s.accessToken = null
+      profileId = s.profileId = null
+      browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
+      if (callback) callback()
+   }
+   xhr.send(null)
+}
 
 function authorize(username, password, secure, callback) {
    if (!username || !username.length || !password || !password.length) {
       return
    }
    if (accessToken != null) {
-      var xhr = new XMLHttpRequest()
-      xhr.open('GET', origin + '/logout?ssid=' + accessToken, true)
-      xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-      xhr.onload = function() {
-         accessToken = s.accessToken = null
-         browser.storage.local.set({ access_token: accessToken })
+      logout(function() {
          doAuth(username, password, secure, callback)
-      }
-      xhr.send(null)
+      })
    } else {
       doAuth(username, password, secure, callback)
    }

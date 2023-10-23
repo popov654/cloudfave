@@ -254,6 +254,21 @@
            box-sizing: border-box;
            animation: rotation 1s linear infinite;
          }
+         #logout {
+            position: absolute;
+            bottom: 16px;
+         }
+         #logoutLink {
+            text-decoration: underline;
+            color: #637fa6;
+            cursor: pointer;
+         }
+         #logoutLink:hover {
+            color: #5896bc;
+         }
+         #logout.hidden {
+            display: none;
+         }
 
          @keyframes rotation {
             0% {
@@ -335,6 +350,7 @@
       <div class="error">Connection problem</div>
    </div>
    <div><div class="loader" style="display: none"></div></div>
+   <div id="logout" class="hidden"><a class="link" id="logoutLink">Logout</a></div>
 </div>
 </body>
 </html>

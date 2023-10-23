@@ -361,8 +361,20 @@ window.addEventListener("DOMContentLoaded", function() {
    
    document.getElementById('syncButton').onclick = function() {
       extension.sendMessage({ operation: 'sync' }, function(result) {
-         if (result.success) {
+         if (result) {
             setLastSyncTime()
+         }
+      })
+   }
+   
+   document.getElementById('logoutLink').onclick = function() {
+      extension.sendMessage({ operation: 'logout' }, function(result) {
+         if (result) {
+            document.getElementById('loginScreen').classList.remove('hidden')
+            document.getElementById('startScreen').classList.add('hidden')
+            document.getElementById('mainScreen').classList.add('hidden')
+            document.getElementById('errorScreen').classList.add('hidden')
+            document.getElementById('logout').classList.add('hidden')
          }
       })
    }
@@ -410,6 +422,7 @@ window.addEventListener("DOMContentLoaded", function() {
       document.getElementById('startScreen').classList.add('hidden')
       document.getElementById('mainScreen').classList.add('hidden')
       document.getElementById('errorScreen').classList.remove('hidden')
+      document.getElementById('logout').classList.add('hidden')
    }
    
    if (screen > 0) {
@@ -420,6 +433,7 @@ window.addEventListener("DOMContentLoaded", function() {
             if (result) {
                document.getElementById('errorScreen').classList.add('hidden')
                document.getElementById('startScreen').classList.remove('hidden')
+               document.getElementById('logout').classList.remove('hidden')
                loadProfiles()
             }
             else if (result === null) {
@@ -428,11 +442,13 @@ window.addEventListener("DOMContentLoaded", function() {
                document.getElementById('startScreen').classList.add('hidden')
                setTimeout(function() {
                   document.getElementById('errorScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.add('hidden')
                }, 300)
             }
          })
          if (!disconnected) timer = setTimeout(function() {
             document.getElementById('startScreen').classList.remove('hidden')
+            document.getElementById('logout').classList.remove('hidden')
          }, 200)
       } else {
          var timer = null
@@ -442,10 +458,12 @@ window.addEventListener("DOMContentLoaded", function() {
                setLastSyncTime()
                document.getElementById('errorScreen').classList.add('hidden')
                document.getElementById('mainScreen').classList.remove('hidden')
+               document.getElementById('logout').classList.remove('hidden')
             } else if (!result && result !== undefined) {
                localStorage.lastConnectionError = Date.now()
                clearTimeout(timer)
                document.getElementById('mainScreen').classList.add('hidden')
+               document.getElementById('logout').classList.add('hidden')
                setTimeout(function() {
                   document.getElementById('errorScreen').classList.remove('hidden')
                }, 300)
@@ -453,6 +471,7 @@ window.addEventListener("DOMContentLoaded", function() {
          })
          if (!disconnected) timer = setTimeout(function() {
             document.getElementById('mainScreen').classList.remove('hidden')
+            document.getElementById('logout').classList.remove('hidden')
          }, 200)
       }
    }
