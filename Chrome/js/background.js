@@ -628,6 +628,7 @@ function searchInFolderById(id, elementDepth, list, depth) {
 }
 
 var pathCache = {}
+var folderCache = {}
 
 function getFullPath(parentId) {
    if (parentId == 0) return Promise.resolve([])
@@ -691,8 +692,8 @@ function applyRemoteUpdates() {
    .then(response => response.json())
    .then(response => {
       return new Promise(function(resolve) {
-         var log = response.data
-         executeCommand(log, 0, resolve)
+         folderCache = {}
+         executeCommand(response.data, 0, resolve)
          if (response.timestamp) {
             lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
          }
@@ -892,13 +893,18 @@ function executeDeleteBookmark(log, index, callback) {
 
 function findFolderByPath(path) {
    var folder = 0
+   if (folderCache[path.join('>')]) {
+      return Promise.resolve(folderCache[path.join('>')])
+   }
    return new Promise(function(resolve) {
       browser.bookmarks.getTree(function(tree){
          folder = getRootFolder(tree)
          if (folderId > -1) {
             path = path.slice(1)
          }
-         resolve(findItem(folder.children, path))
+         var result = findItem(folder.children, path)
+         folderCache[path.join('>')] = result
+         resolve(result)
       })
    })
    
