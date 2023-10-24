@@ -131,18 +131,7 @@ window.addEventListener("DOMContentLoaded", function() {
          list.appendChild(el)
       })
       initProfilesList()
-      if (profiles.length == 0) {
-         var offset = document.getElementById('createNewProfile').clientWidth
-         document.getElementById('selectExistingProfile').disabled = true
-         document.getElementById('createNewProfile').style.visibility = 'hidden'
-         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = -(offset + 5) + 'px'
-         document.getElementById('selectExistingProfile').parentNode.style.display = 'none'
-      } else {
-         document.getElementById('selectExistingProfile').disabled = false
-         document.getElementById('createNewProfile').style.visibility = ''
-         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = ''
-         document.getElementById('selectExistingProfile').parentNode.style.display = ''
-      }
+      performChecks(profiles)
    }
    
    function initProfilesList() {
@@ -179,6 +168,31 @@ window.addEventListener("DOMContentLoaded", function() {
          }
       }
       XScroll.init(list.children[1], true)
+   }
+   
+   function performChecks(profiles) {
+      var maxProfiles = 5
+      if (profiles.length == 0) {
+         var offset = document.getElementById('createNewProfile').clientWidth
+         document.getElementById('selectExistingProfile').disabled = true
+         document.getElementById('createNewProfile').style.visibility = 'hidden'
+         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = -(offset + 5) + 'px'
+         document.getElementById('selectExistingProfile').parentNode.style.display = 'none'
+      } else if (profiles.length >= maxProfiles) {
+         var offset = document.getElementById('selectExistingProfile').clientWidth
+         document.getElementById('createNewProfile').disabled = true
+         document.getElementById('selectExistingProfile').checked = true
+         document.getElementById('selectExistingProfile').style.visibility = 'hidden'
+         document.getElementById('selectExistingProfile').nextElementSibling.style.marginLeft = -(offset + 5) + 'px'
+         document.getElementById('createNewProfile').parentNode.style.display = 'none'
+      } else {
+         document.getElementById('selectExistingProfile').disabled = false
+         document.getElementById('createNewProfile').disabled = false
+         document.getElementById('selectExistingProfile').style.visibility = ''
+         document.getElementById('createNewProfile').style.visibility = ''
+         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = ''
+         document.getElementById('selectExistingProfile').parentNode.style.display = ''
+      }
    }
    
    var usernameField = document.getElementById('username')
