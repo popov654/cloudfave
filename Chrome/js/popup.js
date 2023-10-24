@@ -131,6 +131,18 @@ window.addEventListener("DOMContentLoaded", function() {
          list.appendChild(el)
       })
       initProfilesList()
+      if (profiles.length == 0) {
+         var offset = document.getElementById('createNewProfile').clientWidth
+         document.getElementById('selectExistingProfile').disabled = true
+         document.getElementById('createNewProfile').style.visibility = 'hidden'
+         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = -(offset + 5) + 'px'
+         document.getElementById('selectExistingProfile').parentNode.style.display = 'none'
+      } else {
+         document.getElementById('selectExistingProfile').disabled = false
+         document.getElementById('createNewProfile').style.visibility = ''
+         document.getElementById('createNewProfile').nextElementSibling.style.marginLeft = ''
+         document.getElementById('selectExistingProfile').parentNode.style.display = ''
+      }
    }
    
    function initProfilesList() {
