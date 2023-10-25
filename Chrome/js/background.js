@@ -451,9 +451,16 @@ function compareWithSnapshot() {
                return -1
             }
             
-            function compareItem(list, i, path, _list) {
+            function compareItem(list, i, path, _list, parentFinish) {
                
                if (list.length == 0) return
+               
+               function onfinish() {
+                  if (i+1 >= list.length) {
+                     if (parentFinish) parentFinish()
+                     else resolve(log)
+                  }
+               }
                   
                if (list[i].children) {
                   var title = list[i].title
@@ -463,11 +470,9 @@ function compareWithSnapshot() {
                   else if (i == 1 && list[i].parentId == 0) {
                      title = 'Other bookmarks'
                   }
-                  compareItem(list[i].children, 0, path.concat(title), list[i].children.slice())
+                  compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
                   if (i+1 < list.length) {
-                     compareItem(list, i+1, path, _list)
-                  } else {
-                     if (list == outer) resolve(log)
+                     compareItem(list, i+1, path, _list, parentFinish)
                   }
                   return
                }
@@ -475,9 +480,11 @@ function compareWithSnapshot() {
                try {
                   browser.bookmarks.get(list[i].id, function(result) {
                      if (browser.runtime.lastError || result == null) {
-                        var pos = findIndexByURL(list[i].url, _list)
+                        var pos = findIndexByURL(_list, list[i].url)
                         _list.splice(pos, 1)
-                        log.push({ action: 'delete', url: list[i].url, path: path })
+                        log.push({ action: 'delete', url: list[i].url, path: path });
+                        
+                        (function (list, i) { onfinish() }) (list, i)
                      } else {
                         if (result[0].title != list[i].title) {
                            log.push({ action: 'modify', url: list[i].url, path: path, details: { title: result[0].title }})
@@ -504,7 +511,9 @@ function compareWithSnapshot() {
                               var el = _list.splice(oldIndex, 1)[0]
                               _list.splice(details.index, 0, el)
                               
-                              map[pathStr][1].push({ url: list[i].url, details })
+                              map[pathStr][1].push({ url: list[i].url, details });
+                              
+                              (function (list, i) { onfinish() }) (list, i)
                            })
                         }
                         else if (result[0].index != list[i].index) {
@@ -524,10 +533,13 @@ function compareWithSnapshot() {
                            } else if (details.index < oldIndex) {
                               map[pathStr][0].push({ url: list[i].url, details })
                            }
+                           (function (list, i) { onfinish() }) (list, i)
+                        } else {
+                           (function (list, i) { onfinish() }) (list, i)
                         }
                      }
                      if (i+1 < list.length) {
-                        compareItem(list, i+1, path, _list)
+                        compareItem(list, i+1, path, _list, parentFinish)
                      } else {
                         // Directory end
                         var pathStr = path.join('>')
@@ -538,8 +550,6 @@ function compareWithSnapshot() {
                            }
                            delete map[pathStr]
                         }
-                        
-                        if (list == outer) resolve(log)
                      }
                   })
                } catch (e) {}
@@ -681,13 +691,13 @@ function applyRemoteUpdates() {
 	})
    .then(response => response.json())
    .then(response => {
-      var log = response.data
-      for (var i = 0; i < log.length; i++) {
-         executeCommand(log[i])
-      }
-      if (response.timestamp) {
-         lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
-      }
+      return new Promise(function(resolve) {
+         var log = response.data
+         executeCommand(log, 0, resolve)
+         if (response.timestamp) {
+            lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
+         }
+      })
    })
 }
 
@@ -702,21 +712,33 @@ function sendUpdates(log) {
 	})
 }
 
-function executeCommand(data) {
-   switch (data.action) {
+function executeCommand(log, index, onfinish) {
+   if (!log.length || index >= log.length) {
+      if (onfinish) onfinish()
+      return
+   }
+   var next = function() {
+      if (index < log.length-1) {
+         executeCommand(log, index+1, onfinish)
+      } else {
+         if (onfinish) onfinish()
+      }
+   }
+   switch (log[index].action) {
       case 'add':
-         executeAddBookmark(data)
+         executeAddBookmark(log, index, next)
          break
       case 'modify':
-         executeModifyBookmark(data)
+         executeModifyBookmark(log, index, next)
          break
       case 'delete':
-         executeDeleteBookmark(data)
+         executeDeleteBookmark(log, index, next)
          break
    }
 }
 
-function executeAddBookmark(data) {
+function executeAddBookmark(log, index, callback) {
+   var data = log[index]
    findFolderByPath(data.path).then(folder => {
       if (!folder) folder = { id: 2 }
       if (data.details.index < 0) {
@@ -734,12 +756,14 @@ function executeAddBookmark(data) {
          },
          function(bookmark) {
             console.log("Added remote bookmark: " + bookmark.url);
+            if (callback) callback()
          }
       );
    });
 }
 
-function executeModifyBookmark(data) {
+function executeModifyBookmark(log, index, callback) {
+   var data = log[index]
    findBookmarkByPath(data.path, data.url).then(item => {
       if (!item) return
       if (data.details.index !== undefined || data.details.path) {
@@ -765,6 +789,7 @@ function executeModifyBookmark(data) {
                      details,
                      function(bookmark) {
                         console.log("Moved remote bookmark: " + bookmark.url);
+                        if (callback) callback()
                      }
                   );
                });
@@ -777,6 +802,7 @@ function executeModifyBookmark(data) {
                   details,
                   function(bookmark) {
                      console.log("Moved remote bookmark: " + bookmark.url);
+                     if (callback) callback()
                   }
                );
             });
@@ -788,6 +814,7 @@ function executeModifyBookmark(data) {
             data.details,
             function(bookmark) {
                console.log("Modified remote bookmark: " + bookmark.url);
+               if (callback) callback()
             }
          );
       }
@@ -833,7 +860,8 @@ function calculateIndex(data, pos, folder, details) {
    }
 }
 
-function executeDeleteBookmark(data) {
+function executeDeleteBookmark(log, index, callback) {
+   var data = log[index]
    var item = findBookmarkByPath(data.path, data.url).then(item => {
       if (!item) return
       if (!item.children) {
@@ -841,6 +869,7 @@ function executeDeleteBookmark(data) {
             item.id,
             function(bookmark) {
                console.log("Deleted remote bookmark: " + item.url);
+               if (callback) callback()
             }
          );
       } else {
@@ -848,6 +877,7 @@ function executeDeleteBookmark(data) {
             item.id,
             function(folder) {
                console.log("Deleted remote folder: " + folder.title);
+               if (callback) callback()
             }
          );
       }
