@@ -199,7 +199,7 @@ window.addEventListener("DOMContentLoaded", function() {
    var passwordField = document.getElementById('password')
    
    function convertToLatin(e) {
-      if (e.key && e.key.match(/^Shift|Alt|Control|Backspace|Delete|Tab|Space|Enter$/)) return
+      if (e.ctrlKey || e.key && e.key.match(/^Shift|Alt|Control|Backspace|Delete|Tab|Space|Enter$/)) return
       var start = this.selectionStart
       var end = this.selectionEnd
       var code = e.keyCode >= 188 ? e.keyCode - 144 : e.keyCode
