@@ -120,14 +120,21 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       renameProfile(request.data.value)
    }
    else if (request.operation == 'loadProfile') {
+      var onFinish = function(result) {
+         if (result.timestamp) {
+            lastSync = s.lastSync = +result.timestamp || Date.now() + 1000
+            browser.storage.local.set({ last_sync: lastSync })
+         }
+         saveSnapshot()
+      }
       loadData(request.data.id, function(result) {
          if (request.data.merge) {
             exportData(function(res) {
                mergeData(request.data.id, res)
-               importData(result.data, function() { saveSnapshot() })
+               importData(result.data, onFinish)
             })
          } else {
-            importData(result.data, function() { saveSnapshot() })
+            importData(result.data, onFinish)
          }
          profile_id = s.profile_id = request.data.id
          lastSync = s.lastSync = Date.now() + 1000
@@ -280,7 +287,7 @@ function renameProfile(name, callback) {
 }
 
 function importData(data, callback) {
-   var folder = 0
+   var folder = null
    browser.bookmarks.getTree(function(tree){
       folder = getRootFolder(tree)
       if (folder.id == 0) folder = folder.children[1]
@@ -290,12 +297,7 @@ function importData(data, callback) {
       var last_parent_id = 0
       var last_parent = data[0]
       
-      processItem(data.data, 0, null, sortDirectory, callback)
-      
-      if (data.timestamp) {
-         lastSync = s.lastSync = +data.timestamp || Date.now() + 1000
-         browser.storage.local.set({ last_sync: lastSync })
-      }
+      processItem(data, 0, null, sortDirectory, callback)
       
       function sortDirectory(parent) {
          if (mode == 0 && parent && parent.total_list && parent.ex_list) {
@@ -330,7 +332,7 @@ function importData(data, callback) {
                   parent.ex_list.push(list[i])
                   parent.total_list.push(list[i])
                }
-               processItem(data, index, parent)
+               processItem(data, index, parent, itemComplete, allComplete)
             });
             return
          }
