@@ -465,13 +465,16 @@ function compareWithSnapshot() {
             
             function compareItem(list, i, path, _list, parentFinish) {
                
-               if (list.length == 0) return
-               
                function onfinish() {
                   if (i+1 >= list.length) {
                      if (parentFinish) parentFinish()
                      else resolve(log)
                   }
+               }
+               
+               if (list.length == 0) {
+                  onfinish()
+                  return
                }
                   
                if (list[i].children) {
