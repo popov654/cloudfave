@@ -136,7 +136,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          } else {
             importData(result.data, onFinish)
          }
-         profile_id = s.profile_id = request.data.id
+         profile_id = s.profileId = request.data.id
          lastSync = s.lastSync = Date.now() + 1000
          browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, function() {
             sendResponse(request.data.id)
