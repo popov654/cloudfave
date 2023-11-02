@@ -18,6 +18,7 @@ var extension = browser.extension || browser.runtime
    
 if (!extension.onMessage) extension = browser.runtime
 
+
 window.addEventListener("load", function(){
    
    s.profileName = ''
@@ -136,10 +137,12 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          } else {
             importData(result.data, onFinish)
          }
-         profile_id = s.profileId = request.data.id
+         profileId = s.profileId = request.data.id
          lastSync = s.lastSync = Date.now() + 1000
          browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, function() {
-            sendResponse(request.data.id)
+            getProfileName(function() {
+               sendResponse({ id: profileId, name: s.profileName })
+            })
          })
       })
    }
@@ -315,15 +318,19 @@ function importData(data, callback) {
             parent.total_list = []
          }
       }
+      
+      function folderId(id) {
+         return id
+      }
 
       function processItem(data, index, parent, itemComplete, allComplete) {
-         var parent_id = parent && parent.id || folder.id
+         var parent_id = parent && folderId(parent.id) || folder.id
          
          if (parent && !parent.ex_list) {
             parent.ex_list = []
             parent.total_list = []
             last_parent_id = parent_id
-            browser.bookmarks.getChildren(parent.id, function(list) {
+            browser.bookmarks.getChildren(parent_id, function(list) {
                if (browser.runtime.lastError || !list) {
                   console.log('Error getting children of node ' + parent.id)
                   return
@@ -408,6 +415,10 @@ function getRootFolder(tree) {
    return folder
 }
 
+function isRootFolder(id) {
+   return id == 0
+}
+
 function exportData(callback) {
    browser.bookmarks.getTree(function(result) {
       result[0].children[0].title = 'Bookmarks panel'
@@ -456,9 +467,9 @@ function compareWithSnapshot() {
             
             compareItem(outer, 0, [], outer.slice())
             
-            function findIndexByURL(list, url) {
+            function findIndexByURL(list, url, title) {
                for (var i = 0; i < list.length; i++) {
-                  if (list[i].url == url) return i
+                  if (url && list[i].url == url || !url && list[i].title == title) return i
                }
                return -1
             }
@@ -476,31 +487,22 @@ function compareWithSnapshot() {
                   onfinish()
                   return
                }
-                  
-               if (list[i].children) {
-                  var title = list[i].title
-                  if (i == 0 && list[i].parentId == 0) {
-                     title = 'Bookmarks panel'
-                  }
-                  else if (i == 1 && list[i].parentId == 0) {
-                     title = 'Other bookmarks'
-                  }
-                  compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
-                  if (i+1 < list.length) {
-                     compareItem(list, i+1, path, _list, parentFinish)
-                  }
-                  return
-               }
                
                try {
                   browser.bookmarks.get(list[i].id, function(result) {
                      if (browser.runtime.lastError || result == null) {
-                        var pos = findIndexByURL(_list, list[i].url)
+                        var pos = findIndexByURL(_list, list[i].url, list[i].title)
                         _list.splice(pos, 1)
-                        log.push({ action: 'delete', url: list[i].url, path: path });
+                        for (var j = pos; j < _list.length; j++) {
+                           _list[j].index--
+                        }
+                        log.push({ action: 'delete', url: list[i].url, title: list[i].title, path: path });
                         
                         (function (list, i) { onfinish() }) (list, i)
                      } else {
+                        if (!result[0].url && isRootFolder(result[0].parentId)) {
+                           result[0].title = getDefaultNameById(result[0].id)
+                        }
                         if (result[0].title != list[i].title) {
                            log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
                         }
@@ -519,13 +521,13 @@ function compareWithSnapshot() {
                               }
                               var details = { path: new_path, index: result[0].index }
                               
-                              var oldIndex = findIndexByURL(_list, list[i].url)
+                              var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
                               setBeforeAndAfter(_list, oldIndex, details)
                               log.splice(pos, 0, { action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
                               
                               map[pathStr][1].push({ url: list[i].url, details });
                               
-                              (function (list, i) { onfinish() }) (list, i)
+                              if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
                            })
                         }
                         else if (result[0].index != list[i].index) {
@@ -533,7 +535,7 @@ function compareWithSnapshot() {
                            if (!map[pathStr]) map[pathStr] = [[], []]
                            var details = { index: result[0].index }
                            
-                           var oldIndex = findIndexByURL(_list, list[i].url)
+                           var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
                            setBeforeAndAfter(_list, oldIndex, details)
                            //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
                            
@@ -542,9 +544,16 @@ function compareWithSnapshot() {
                            } else if (details.index < oldIndex) {
                               map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
                            }
-                           (function (list, i) { onfinish() }) (list, i)
+                           if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
                         } else {
-                           (function (list, i) { onfinish() }) (list, i)
+                           if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
+                        }
+                        if (list[i].children) {
+                           var title = list[i].title
+                           if (isRootFolder(list[i].parentId)) {
+                              title = getDefaultNameByIndex(i)
+                           }
+                           compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
                         }
                      }
                      if (i+1 < list.length) {
@@ -631,7 +640,7 @@ function walkTree(list, callback, onfinish) {
       if (list[i].children) {
          walkTree(list[i].children, callback, onfinish)
       }
-      if (i == list.length-1 && list[i].parentId == '0' && onfinish) {
+      if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
          onfinish()
       }
    }
@@ -650,21 +659,36 @@ function searchInFolderById(id, elementDepth, list, depth) {
 var pathCache = {}
 var folderCache = {}
 
+function getDefaultName(root, folderId) {
+   if (root[0].children[0].id == folderId) {
+      return 'Bookmarks panel'
+   }
+   else if (root[0].children[1].id == folderId) {
+      return 'Other bookmarks'
+   }
+   return null
+}
+
+function getDefaultNameById(folderId) {
+   return ['', 'Bookmarks panel', 'Other bookmarks'][+folderId];
+}
+
+function getDefaultNameByIndex(index) {
+   return ['Bookmarks panel', 'Other bookmarks'][index]
+}
+
 function getFullPath(parentId) {
-   if (parentId == 0) return Promise.resolve([])
+   if (isRootFolder(parentId)) return Promise.resolve([])
    parentId = parentId + ''
    if (pathCache[parentId]) return Promise.resolve(pathCache[parentId])
    return new Promise(function(resolve) {
       browser.bookmarks.get(parentId, function(result) {
-         if (result[0].parentId == 0) {
+         if (result[0].parentId && isRootFolder(result[0].parentId)) {
             browser.bookmarks.getTree(function(tree){
-               if (tree[0].children[0].id == result[0].id) {
-                  pathCache[parentId] = ['Bookmarks panel']
-                  resolve(['Bookmarks panel'])
-               }
-               else if (tree[0].children[1].id == result[0].id) {
-                  pathCache[parentId] = ['Other bookmarks']
-                  resolve(['Other bookmarks'])
+               var name = getDefaultName(tree, result[0].id)
+               if (name) {
+                  pathCache[parentId] = [name]
+                  resolve([name])
                }
                else {
                   pathCache[parentId] = [result[0].title]
@@ -939,8 +963,7 @@ function findFolderByPath(path) {
             }
             return findItem(list[i].children, path.slice(1))
          }
-         else if (list[i].parentId === '0' && i == 0 && path[0] == 'Bookmarks panel' ||
-                  list[i].parentId === '0' && i == 1 && path[0] == 'Other bookmarks') {
+         else if (isRootFolder(list[i].parentId) && path[0] == getDefaultNameByIndex(i)) {
             if (path.length == 1) {
                return list[i]
             }
@@ -978,8 +1001,7 @@ function findBookmarkByPath(path, url, title) {
                return null
             }
             return findItem(list[i].children, path.slice(1), url, title)
-         } else if (list[i].parentId === '0' && i == 0 && path[0] == 'Bookmarks panel' ||
-                    list[i].parentId === '0' && i == 1 && path[0] == 'Other bookmarks') {
+         } else if (isRootFolder(list[i].parentId) && path[0] == getDefaultNameByIndex(i)) {
             return findItem(list[i].children, path.slice(1), url, title)
          }
       }
@@ -1051,7 +1073,7 @@ const Tree = {
       var id = this.findMaxId([root]) + 1;
       var index = this.findMaxIndex(subTree.children) + 1;
       element.index = index;
-      element = { id, dateAdded: Date.now(), ...element };
+      element = { dateAdded: Date.now(), id, ...element };
       if (!element.url) element.children = [];
       subTree.children.push(element);
    },
