@@ -502,7 +502,7 @@ function compareWithSnapshot() {
                         (function (list, i) { onfinish() }) (list, i)
                      } else {
                         if (result[0].title != list[i].title) {
-                           log.push({ action: 'modify', url: list[i].url, path: path, details: { title: result[0].title }})
+                           log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
                         }
                         if (result[0].url != list[i].url) {
                            log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
@@ -521,10 +521,7 @@ function compareWithSnapshot() {
                               
                               var oldIndex = findIndexByURL(_list, list[i].url)
                               setBeforeAndAfter(_list, oldIndex, details)
-                              log.splice(pos, 0, { action: 'modify', url: list[i].url, path: path, details: details })
-                              
-                              var el = _list.splice(oldIndex, 1)[0]
-                              _list.splice(details.index, 0, el)
+                              log.splice(pos, 0, { action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
                               
                               map[pathStr][1].push({ url: list[i].url, details });
                               
@@ -538,15 +535,12 @@ function compareWithSnapshot() {
                            
                            var oldIndex = findIndexByURL(_list, list[i].url)
                            setBeforeAndAfter(_list, oldIndex, details)
-                           //log.push({ action: 'modify', url: list[i].url, path: path, details: details })
-                           
-                           var el = _list.splice(oldIndex, 1)[0]
-                           _list.splice(details.index, 0, el)
+                           //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
                            
                            if (details.index > oldIndex) {
-                              map[pathStr][1].push({ url: list[i].url, details })
+                              map[pathStr][1].push({ url: list[i].url, title: list[i].title, details })
                            } else if (details.index < oldIndex) {
-                              map[pathStr][0].push({ url: list[i].url, details })
+                              map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
                            }
                            (function (list, i) { onfinish() }) (list, i)
                         } else {
@@ -559,9 +553,10 @@ function compareWithSnapshot() {
                         // Directory end
                         var pathStr = path.join('>')
                         if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
-                           var index = map[pathStr][0].length <= map[pathStr][1].length ? 0 : 1
-                           for (var j = 0; j < map[pathStr][index].length; j++) {
-                              log.push({ action: 'modify', url: map[pathStr][index][j].url, path: path, details: map[pathStr][index][j].details })
+                           var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
+                           var a = map[pathStr][index]
+                           for (var j = 0; j < a.length; j++) {
+                              log.push({ action: 'modify', url: a[j].url, title: a[j].title, path: path, details: a[j].details })
                            }
                            delete map[pathStr]
                         }
@@ -578,10 +573,18 @@ function setBeforeAndAfter(list, pos, details) {
    if (details.index === undefined || details.index < 0 || details.index >= list.length) {
       details.index = list.length-1
    }
-   var i = parseInt(details.index)
+   
+   var el = list.splice(pos, 1)[0]
+   list.splice(details.index, 0, el)
+   
+   for (var i = 0; i < list.length; i++) {
+      if (list[i] == el) {
+         details.before = i > 0 ? { url: list[i-1].url, title: list[i-1].title } : null
+         details.after = i < list.length-1 ? { url: list[i+1].url, title: list[i+1].title } : null
+         break
+      }
+   }
    details.folder_size = list.length
-   details.before = i > 0 ? { url: list[i-1].url, title: list[i-1].title } : null
-   details.after = i < list.length-1 ? { url: list[i].url, title: list[i].title } : null
 }
 
 function checkForNewItems() {
@@ -788,7 +791,7 @@ function executeAddBookmark(log, index, callback) {
 
 function executeModifyBookmark(log, index, callback) {
    var data = log[index]
-   findBookmarkByPath(data.path, data.url).then(item => {
+   findBookmarkByPath(data.path, data.url, data.title).then(item => {
       if (!item) return
       if (data.details.index !== undefined || data.details.path) {
          var details = {}
@@ -886,7 +889,7 @@ function calculateIndex(data, pos, folder, details) {
 
 function executeDeleteBookmark(log, index, callback) {
    var data = log[index]
-   var item = findBookmarkByPath(data.path, data.url).then(item => {
+   var item = findBookmarkByPath(data.path, data.url, data.title).then(item => {
       if (!item) return
       if (!item.children) {
          browser.bookmarks.remove(
@@ -900,7 +903,7 @@ function executeDeleteBookmark(log, index, callback) {
          browser.bookmarks.removeTree(
             item.id,
             function(folder) {
-               console.log("Deleted remote folder: " + folder.title);
+               console.log("Deleted remote folder: " + item.title);
                if (callback) callback()
             }
          );
@@ -948,7 +951,7 @@ function findFolderByPath(path) {
    }
 }
 
-function findBookmarkByPath(path, url) {
+function findBookmarkByPath(path, url, title) {
    var folder = 0
    return (function(path) {
       return new Promise(function(resolve) {
@@ -957,27 +960,34 @@ function findBookmarkByPath(path, url) {
             if (folderId > -1) {
                path = path.slice(1)
             }
-            resolve(findItem(folder.children, path, url))
+            resolve(findItem(folder.children, path, url, title))
          })
       })
    })(path)
    
-   function findItem(list, path, url) {
+   function findItem(list, path, url, title) {
       for (var i = 0; i < list.length; i++) {
-         if (path.length == 0 && list[i].url == url) {
+         if (path.length == 0 && equals(list[i], { url, title })) {
             return list[i]
          }
          else if (list[i].title == path[0]) {
+            if (!url && title == list[i].title) {
+               return list[i]
+            }
             if (path.length == 1 && !list[i].children) {
                return null
             }
-            return findItem(list[i].children, path.slice(1), url)
+            return findItem(list[i].children, path.slice(1), url, title)
          } else if (list[i].parentId === '0' && i == 0 && path[0] == 'Bookmarks panel' ||
                     list[i].parentId === '0' && i == 1 && path[0] == 'Other bookmarks') {
-            return findItem(list[i].children, path.slice(1), url)
+            return findItem(list[i].children, path.slice(1), url, title)
          }
       }
       return null
+   }
+   
+   function equals(el1, el2) {
+      return el1.url && el2.url && el1.url == el2.url || !el1.url && !el2.url && el1.title == el2.title;
    }
 }
 
