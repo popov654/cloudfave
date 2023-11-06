@@ -304,6 +304,14 @@ window.addEventListener("DOMContentLoaded", function() {
    profileNameField.addEventListener('focus', checkProfileName)
    profileNameField.addEventListener('input', checkProfileName)
    
+   document.getElementById('selectExistingProfile').nextElementSibling.lastElementChild.style.visibility = 'hidden'
+   
+   document.getElementById('createNewProfile').onchange = 
+   document.getElementById('selectExistingProfile').onchange = function() {
+      var el = document.getElementById('selectExistingProfile')
+      el.nextElementSibling.lastElementChild.style.visibility = el.checked ? '' : 'hidden'
+   }
+   
    document.getElementById('nextButton').onclick = function() {
       if (this.classList.contains('disabled')) return
       if (document.getElementById('createNewProfile').checked) {
