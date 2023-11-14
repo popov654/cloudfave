@@ -110,7 +110,8 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                sendResponse(0)
             } else {
                lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
-               browser.storage.local.set({ snapshot: result, last_sync: lastSync }, function() {
+               profileId = s.profileId = res.profileId
+               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
                   sendResponse(res.profileId)
                })
             }
