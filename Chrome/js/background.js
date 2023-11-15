@@ -1,4 +1,4 @@
-var origin = 'http://localhost:3000'
+var origin = 'https://cloudfave.ext.io'
 
 var mode = 0
 
