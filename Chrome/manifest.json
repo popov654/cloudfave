@@ -13,10 +13,9 @@
   },
   "permissions": [
     "storage",
-    "tabs",
     "bookmarks",
     "*://localhost/*",
-    "*://api.cloudfave.com/*"
+    "*://cloudfave.ext.io/*"
   ],
 
   "browser_action": {
