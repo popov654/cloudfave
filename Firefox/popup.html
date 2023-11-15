@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>VK Plus</title>
+    <meta http-equiv='Content-Type' content='text/html; charset=cp1251'/>
+    <link rel="shortcut icon" href="icons/icon.png">
+    <style type="text/css">
+        body { background: #4f7bae; font-family: Roboto, Open Sans, Tahoma; font-size: 13px; min-width: 338px; padding: 14px; }
+        .wrapper { background: #fff; min-height: 340px; font-size: 15px; border: 1px solid #ccc; border-radius: 3px; }
+        .wrapper > div.hidden {
+           display: none;
+           opacity: 0;
+        }
+        .wrapper > div {
+           display: block;
+           padding: 20px 16px;
+           width: 280px;
+           transition: opacity ease 0.75s 0.2s;
+        }
+        input {
+           font-size: 15px;
+           padding: 4px 6px;
+           border: 1px solid #ccc;
+           border-radius: 4px;
+        }
+        button {
+           border-radius: 14px;
+           height: 24px;
+           background: #2da1e3;
+           color: #fbfbfb;
+           font-family: Roboto;
+           font-size: 14.5px;
+           border: 1px solid rgba(118, 136, 143, 0.2);
+           text-shadow: 1px 1px 0px rgba(48, 48, 48, 0.15);
+           cursor: pointer;
+        }
+        button:not(.disabled):hover {
+           background: #36acef;
+           color: #fefefe;
+           border: 1px solid rgba(218, 236, 243, 0.8);
+           text-shadow: 1px 1px 0px rgba(35, 35, 35, 0.15);
+        }
+        input[type="checkbox"] {
+           width: 14px;
+           height: 14px;
+        }
+        input[type="checkbox"] + label {
+           margin-left: 4px;
+           position: relative;
+           top: -2px;
+           user-select: none;
+        }
+        button {
+           width: 130px;
+           height: 28px;
+        }
+        .line {
+           padding: 6px;
+        }
+        #loginForm button {
+           width: 110px;
+        }
+        ::placeholder {
+           color: #c3c3c5;
+        }
+        #loginError {
+           display: none;
+           opacity: 0;
+           width: 210px;
+           margin: 14px auto 6px;
+           background: #e9a8a8;
+           color: #855558;
+           padding: 6px 16px;
+           border-radius: 6px;
+           border: 1px solid #855558;
+           transition: opacity ease-out 0.8s 0.2s;
+        }
+        #loginError.visible {
+           display: block;
+           opacity: 1;
+        }
+        button.disabled {
+           background: #91b8cc;
+           cursor: not-allowed;
+           text-shadow: 1px 1px 0px rgba(48, 48, 48, 0.05);
+        }
+        #loginForm input {
+           box-sizing: border-box;
+           width: 194px;
+        }
+        #password {
+           margin-left: -3px;
+        }
+        #loginForm .toggle {
+           display: inline-block;
+           vertical-align: middle;
+           margin-left: -23px;
+           border-radius: 3px;
+           width: 20px;
+           height: 20px;
+           position: relative;
+           top: -2px;
+           opacity: 0.56;
+           cursor: pointer;
+        }
+        #passToggle {
+           background: url('img/eye2.png') center 58% / 18px no-repeat;
+        }
+        #passToggle.visible {
+           background: url('img/eye1.png') center 58% / 18px no-repeat;
+        }
+        #password {
+           padding-right: 20px;
+        }
+        @font-face {
+           font-family: Roboto;
+           src: url('fonts/Roboto-Regular.ttf');
+        }
+        
+        input:focus {
+           outline-color: #0cf;
+        }
+        
+        #startScreen {
+           text-align: left;
+           font-size: 15px;
+        }
+        #newProfileName {
+           width: 250px;
+           box-sizing: border-box;
+        }
+        .select {
+           user-select: none;
+        }
+        input:checked + label > .select .header {
+           outline: 2px solid #0cf;
+        }
+        .select .header {
+           box-sizing: border-box;
+           position: relative;
+           width: 250px;
+           border-radius: 6px;
+           border: 1px solid #ccc;
+           min-height: 24px;
+           background: #fff;
+           z-index: 1;
+        }
+        .select .header::after {
+           display: block;
+           content: '';
+           position: absolute;
+           top: 50%;
+           margin-top: -3px;
+           right: 6px;
+           width: 0px;
+           height: 0px;
+           border-top: 6px solid #ccc;
+           border-left: 5px solid transparent;
+           border-right: 5px solid transparent;
+        }
+        .profile {
+           padding: 3px 5px;
+           border-radius: 3px;
+        }
+        .list {
+           background: #fff;
+           opacity: 0;
+           visibility: hidden;
+           border: 1px solid #ccc;
+           border-radius: 3px 3px 4px 4px;
+           min-height: 42px;
+           max-height: 128px;
+           margin-top: 1px;
+           box-shadow: 0px 1px 5px 2px rgba(35, 35, 35, 0.12);
+           transition: opacity linear 0.4s 0.1s, top linear 0.4s 0.1s;
+           position: relative;
+           top: -5px;
+        }
+        .list.visible {
+           opacity: 1;
+           top: 0px;
+        }
+        .list .profile:hover {
+           background: #eff1f3;
+        }
+        .created_at {
+           font-size: 12px;
+           color: #bababa;
+           margin: 2px 0px;
+        }
+        #startScreen label > span {
+           position: relative;
+           top: -2px;
+        }
+        #startScreen label > div {
+           padding: 2px 6px; 
+        }
+        #nextButton, #syncButton {
+           width: 90px;
+        }
+        #activeProfile {
+           font-weight: 700;
+           font-size: 21px;
+           color: #666;
+           margin: 0px 6px;
+        }
+        #errorScreen {
+           font-size: 15px;
+        }
+        #errorScreen .image {
+           background: url('img/network-error.png') center center / contain no-repeat;
+           width: 80px;
+           height: 80px;
+           margin: 70px auto 10px;
+        }
+        #nameEditBtn {
+           display: inline-block;
+           margin: 2px;
+           padding: 3px 1px;
+           width: 26px;
+           height: 22px;
+           border-radius: 4px;
+           border: none;
+           background: none;
+           position: absolute;
+           top: -1px;
+           right: -24px;
+           cursor: pointer;
+        }
+        #nameEditBtn:focus {
+           outline-color: #35ccff;
+           outline-offset: 1px;
+        }
+        #nameEditBtn > svg {
+           fill: #bdbdc3;
+           margin-left: -1px;
+        }
+        #nameEditBtn:hover {
+           background: #e8e8e8;
+        }
+        #nameEditBtn:hover > svg {
+           fill: #c3c3c8;
+        }
+        
+        .loader {
+           margin: 16px auto;
+           width: 40px;
+           height: 40px;
+           border: 6px solid #236cd6;
+           border-bottom-color: transparent;
+           border-radius: 50%;
+           display: inline-block;
+           box-sizing: border-box;
+           animation: rotation 1s linear infinite;
+         }
+         #logout {
+            position: absolute;
+            bottom: 16px;
+         }
+         #logoutLink {
+            text-decoration: underline;
+            color: #637fa6;
+            cursor: pointer;
+         }
+         #logoutLink:hover {
+            color: #5896bc;
+         }
+         #logout.hidden {
+            display: none;
+         }
+
+         @keyframes rotation {
+            0% {
+               transform: rotate(0deg);
+            }
+            100% {
+               transform: rotate(360deg);
+            }
+        }
+
+        .xscroll_thumb_horz, .xscroll_thumb_vert {
+           background: #ccc;
+           border-radius: 3px;
+        }
+        .xscroll_thumb_horz:hover, .xscroll_thumb_vert:hover {
+           background: #cfcfcf;
+        }
+        .xscroll_btn_left:hover, .xscroll_btn_right:hover,
+        .xscroll_btn_up:hover, .xscroll_btn_down:hover {
+           opacity: 0.8;
+        }
+    </style>
+    <script src="js/xscroll.js"></script>
+    <script src="js/popup.js"></script>
+</head>
+<body>
+<div class="wrapper" style="text-align: center">
+   <!-- <div class="line"><button>Create new</button></div>
+   <div class="line"><button>Get created</button></div>
+   <div class="line"><button>Save snapshot</button></div> -->
+   <div id="loginScreen">
+      <form id="loginForm">
+         <div class="line"><div style="width: 100%; height: 80px; background: url('img/logo.png') center center no-repeat; background-size: contain"></div></div>
+         <div class="line"><input type="text" name="username" id="username" placeholder="E-mail" /></div>
+         <div class="line"><input type="password" name="password" id="password" placeholder="Password" /><div id="passToggle" class="toggle"></div></div>
+         <div class="line"><center><button>Sign In</button></center></div>
+         <div id="loginError">Invalid username or password</div>
+      </form>
+   </div>
+   <div id="startScreen" class="hidden">
+      <div class="line"><input type="radio" name="profileChooser" id="createNewProfile" checked /><label for="createNewProfile">
+         <span>Create new profile</span>
+         <div><input type="text" id="newProfileName" placeholder="Enter name here" /></div>
+      </label></div>
+      <div class="line"><input type="radio" name="profileChooser" id="selectExistingProfile" /><label for="selectExistingProfile">
+         <span>Select existing profile</span>
+         <div class="select" id="profilesList">
+            <div class="header"></div>
+            <div class="list scrollable scroll_y" button-size="1" scroll-delta="20" thumb-length="50" thumb-width="5">
+               <div class="item profile" data-id="1">
+                  <div class="title">Main profile</div>
+                  <div class="created_at">Created at 27 Sep 2023, 16:45</div>
+               </div>
+               <div class="item profile" data-id="2">
+                  <div class="title">Test</div>
+                  <div class="created_at">Created at 28 Sep 2023, 12:14</div>
+               </div>
+               <div class="item profile" data-id="3">
+                  <div class="title">Test 2</div>
+                  <div class="created_at">Created at 28 Sep 2023, 12:37</div>
+               </div>
+            </div>
+         </div>
+         <div style="padding: 3px 3px 12px"><input type="checkbox" id="mergeExistingData" /><label for="mergeExistingData">Merge existing data</label></div>
+      </label></div>
+      <div class="line"><center><button id="nextButton">Next</button></center></div>
+   </div>
+   <div id="mainScreen" style="height: 120px" class="hidden">
+      <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
+         <div class="container">
+            <div style="position: relative; font-size: 17px; color: #57595c">Active profile: <span id="activeProfile">Main profile</span><input type="text" id="profileEditName" style="display: none; width: 110px; margin-right: 4px; height: 18px; font-size: 16px;" value="Main profile" /><button id="nameEditBtn"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#bdbdc3" version="1.1" id="Capa_1" width="15px" height="15px" viewBox="0 0 528.899 528.899" xml:space="preserve"><g><path d="M328.883,89.125l107.59,107.589l-272.34,272.34L56.604,361.465L328.883,89.125z M518.113,63.177l-47.981-47.981   c-18.543-18.543-48.653-18.543-67.259,0l-45.961,45.961l107.59,107.59l53.611-53.611   C532.495,100.753,532.495,77.559,518.113,63.177z M0.3,512.69c-1.958,8.812,5.998,16.708,14.811,14.565l119.891-29.069   L27.473,390.597L0.3,512.69z"/></g></svg></button></div>
+            <div style="color: #aaa; margin: 8px 0px 14px">Last synced <span id="lastSyncTime">5 minutes ago</span></div>
+            <div class="line"><center><button id="syncButton">Sync Now</button></center></div>
+         </div>
+      </div>
+   </div>
+   <div id="errorScreen" style="height: 120px" class="hidden">
+      <div class="image"></div>
+      <div class="error">Connection problem</div>
+   </div>
+   <div><div class="loader" style="display: none"></div></div>
+   <div id="logout" class="hidden"><a class="link" id="logoutLink">Logout</a></div>
+</div>
+</body>
+</html>

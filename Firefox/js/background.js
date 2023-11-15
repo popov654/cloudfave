@@ -32,20 +32,25 @@ window.addEventListener("load", function(){
 }, false);
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], function(result) {
-      accessToken = result.access_token || null
-      profileId = result.profile_id || null
-      folderId = result.folder_id || -1
-      lastSync = result.last_sync || 0
-      syncInterval = result.sync_interval || 300000
-      s.accessToken = accessToken
-      s.profileId = profileId
-      s.folderId = folderId
-      s.lastSync = lastSync
-      s.syncInterval = syncInterval
-      
-      if (callback) callback()
-   });
+   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval']).then(
+      function(result) {
+         accessToken = result.access_token || null
+         profileId = result.profile_id || null
+         folderId = result.folder_id || -1
+         lastSync = result.last_sync || 0
+         syncInterval = result.sync_interval || 300000
+         s.accessToken = accessToken
+         s.profileId = profileId
+         s.folderId = folderId
+         s.lastSync = lastSync
+         s.syncInterval = syncInterval
+         
+         if (callback) callback()
+      },
+      function(err) {
+         console.log(err)
+      }
+   );
 }
 
 function getProfiles(callback) {
@@ -95,9 +100,16 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    }
    else if (request.operation == 'setProfileId') {
       profileId = s.profileId = request.data.id
-      browser.storage.local.set({ profileId: request.data.id }, function() {
-         getProfileName(sendResponse)
-      })
+      browser.storage.local.set({ profileId: request.data.id }).then(
+         function() {
+            getProfileName(function() {
+               sendResponse({ id: profileId, name: s.profileName })
+            })
+         },
+         function(err) {
+            console.log(err)
+         }
+      )
    }
    else if (request.operation == 'update') {
       updateUserConfig(request.data)
@@ -113,9 +125,14 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             } else {
                lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
                profileId = s.profileId = res.profileId
-               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
-                  sendResponse(res.profileId)
-               })
+               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }).then(
+                  function() {
+                     sendResponse(res.profileId)
+                  },
+                  function(err) {
+                     console.log(err)
+                  }
+               )
             }
          })
       })
@@ -142,11 +159,16 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          }
          profileId = s.profileId = request.data.id
          lastSync = s.lastSync = Date.now() + 1000
-         browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, function() {
-            getProfileName(function() {
-               sendResponse({ id: profileId, name: s.profileName })
-            })
-         })
+         browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }).then(
+            function() {
+               getProfileName(function() {
+                  sendResponse({ id: profileId, name: s.profileName })
+               })
+            },
+            function(err) {
+               console.log(err)
+            }
+         )
       })
    }
    else if (request.operation == 'getProfiles') {
@@ -156,7 +178,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    }
    else if (request.operation == 'saveSnapshot') {
       saveSnapshot(function() {
-         browser.storage.local.get(['snapshot'], function(result) {
+         browser.storage.local.get(['snapshot']).then(function(result) {
             var snapshot = result.snapshot
             sendResponse(snapshot)
          })
@@ -439,13 +461,13 @@ function exportData(callback) {
 
 function saveSnapshot(callback) {
    exportData(function(data) {
-      browser.storage.local.set({ snapshot: data }, callback)
+      browser.storage.local.set({ snapshot: data }).then(callback, err => console.log(err))
    })
 }
 
 function createSnapshotIfNull() {
    return new Promise(function(resolve, reject) {
-      browser.storage.local.get(['snapshot'], function(res) {
+      browser.storage.local.get(['snapshot']).then(function(res) {
          if (res.snapshot) {
             resolve()
          } else {
@@ -611,7 +633,7 @@ function checkForNewItems() {
          folder = getRootFolder(tree)
 
          browser.bookmarks.getSubTree(folder.id, function(result) {
-            browser.storage.local.get(['snapshot'], function(res) {
+            browser.storage.local.get(['snapshot']).then(function(res) {
                var snapshot = res.snapshot
                walkTree(result, function(element) {
                   getFullPath(element.parentId).then(path => {
