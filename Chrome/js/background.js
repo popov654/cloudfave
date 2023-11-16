@@ -1,4 +1,4 @@
-var origin = 'https://cloudfave.ext.io'
+var origin = 'https://cloudfave.ext.io/api'
 
 var mode = 0
 
