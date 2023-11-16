@@ -11,8 +11,18 @@
   "background": {
     "scripts": ["js/background.js"]
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://cloudfave.ext.io/oauth/*",
+        "*://cloudfave.ext.io/setpassword*"
+      ],
+      "js": [ "js/oauth_inject.js" ]
+    }
+  ],
   "permissions": [
     "storage",
+    "tabs",
     "bookmarks",
     "*://localhost/*",
     "*://cloudfave.ext.io/*"

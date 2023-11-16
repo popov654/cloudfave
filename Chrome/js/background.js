@@ -105,6 +105,10 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    else if (request.operation == 'authorize') {
       authorize(request.data.username, request.data.password, false, sendResponse)
    }
+   else if (request.operation == 'oauthLogin') {
+      accessToken = s.accessToken = request.access_token
+      browser.storage.local.set({ access_token: accessToken })
+   }
    else if (request.operation == 'createProfile') {
       exportData(function(result) {
          createProfile(request.name, result, function(res) {

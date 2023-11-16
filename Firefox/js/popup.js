@@ -20,6 +20,7 @@ function getElementsByClass(searchClass, node, tag) {
 window.addEventListener("DOMContentLoaded", function() {
    
    var extension = window.browser && window.browser.runtime || chrome.extension
+   var browser = window.browser || window.chrome
    
    var otherBookmarks = 0;
    chrome.bookmarks.getTree(function(tree){
@@ -411,6 +412,12 @@ window.addEventListener("DOMContentLoaded", function() {
             document.getElementById('logout').classList.add('hidden')
          }
       })
+   }
+   
+   document.getElementById('google_signin').onclick = function() {
+      var url = 'https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?client_id=1051843566407-qfq4f9tmm7sigput90sb20b3fiqocefs.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fcloudfave.ext.io/oauth/google&response_type=token&scope=openid%20email'
+      browser.tabs.create({ url: url })
+      window.close()
    }
    
    function setProfileName(value) {
