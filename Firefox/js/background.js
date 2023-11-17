@@ -21,6 +21,17 @@ if (!extension.onMessage) extension = browser.runtime
 var firefoxIds = { 0: 'root________', 1: 'toolbar_____', 2: 'unfiled_____', 3: 'mobile______' }
 var isFirefox = !chrome.app
 
+if (isFirefox) {
+   browser.storage.local._get = browser.storage.local.get
+   browser.storage.local.get = function(params, callback) {
+      browser.storage.local._get(params).then(callback, (err) => console.log(err))
+   }
+   browser.storage.local._set = browser.storage.local.set
+   browser.storage.local.set = function(obj, callback) {
+      browser.storage.local._set(obj).then(callback, (err) => console.log(err))
+   }
+}
+
 window.addEventListener("load", function(){
    
    s.profileName = ''
@@ -32,7 +43,7 @@ window.addEventListener("load", function(){
 }, false);
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval']).then(
+   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], 
       function(result) {
          accessToken = result.access_token || null
          profileId = result.profile_id || null
@@ -46,9 +57,6 @@ function loadUserConfig(callback) {
          s.syncInterval = syncInterval
          
          if (callback) callback()
-      },
-      function(err) {
-         console.log(err)
       }
    );
 }
@@ -100,14 +108,11 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    }
    else if (request.operation == 'setProfileId') {
       profileId = s.profileId = request.data.id
-      browser.storage.local.set({ profileId: request.data.id }).then(
+      browser.storage.local.set({ profileId: request.data.id },
          function() {
             getProfileName(function() {
                sendResponse({ id: profileId, name: s.profileName })
             })
-         },
-         function(err) {
-            console.log(err)
          }
       )
    }
@@ -129,12 +134,9 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             } else {
                lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
                profileId = s.profileId = res.profileId
-               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }).then(
+               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync },
                   function() {
                      sendResponse(res.profileId)
-                  },
-                  function(err) {
-                     console.log(err)
                   }
                )
             }
@@ -163,14 +165,11 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          }
          profileId = s.profileId = request.data.id
          lastSync = s.lastSync = Date.now() + 1000
-         browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }).then(
+         browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync },
             function() {
                getProfileName(function() {
                   sendResponse({ id: profileId, name: s.profileName })
                })
-            },
-            function(err) {
-               console.log(err)
             }
          )
       })
@@ -465,13 +464,13 @@ function exportData(callback) {
 
 function saveSnapshot(callback) {
    exportData(function(data) {
-      browser.storage.local.set({ snapshot: data }).then(callback, err => console.log(err))
+      browser.storage.local.set({ snapshot: data }, callback)
    })
 }
 
 function createSnapshotIfNull() {
    return new Promise(function(resolve, reject) {
-      browser.storage.local.get(['snapshot']).then(function(res) {
+      browser.storage.local.get(['snapshot'], function(res) {
          if (res.snapshot) {
             resolve()
          } else {

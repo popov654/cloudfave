@@ -21,6 +21,17 @@ if (!extension.onMessage) extension = browser.runtime
 var firefoxIds = { 0: 'root________', 1: 'toolbar_____', 2: 'unfiled_____', 3: 'mobile______' }
 var isFirefox = !chrome.app
 
+if (isFirefox) {
+   browser.storage.local._get = browser.storage.local.get
+   browser.storage.local.get = function(params, callback) {
+      browser.storage.local._get(params).then(callback, (err) => console.log(err))
+   }
+   browser.storage.local._set = browser.storage.local.set
+   browser.storage.local.set = function(obj, callback) {
+      browser.storage.local._set(obj).then(callback, (err) => console.log(err))
+   }
+}
+
 window.addEventListener("load", function(){
    
    s.profileName = ''
@@ -32,20 +43,22 @@ window.addEventListener("load", function(){
 }, false);
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], function(result) {
-      accessToken = result.access_token || null
-      profileId = result.profile_id || null
-      folderId = result.folder_id || -1
-      lastSync = result.last_sync || 0
-      syncInterval = result.sync_interval || 300000
-      s.accessToken = accessToken
-      s.profileId = profileId
-      s.folderId = folderId
-      s.lastSync = lastSync
-      s.syncInterval = syncInterval
-      
-      if (callback) callback()
-   });
+   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], 
+      function(result) {
+         accessToken = result.access_token || null
+         profileId = result.profile_id || null
+         folderId = result.folder_id || -1
+         lastSync = result.last_sync || 0
+         syncInterval = result.sync_interval || 300000
+         s.accessToken = accessToken
+         s.profileId = profileId
+         s.folderId = folderId
+         s.lastSync = lastSync
+         s.syncInterval = syncInterval
+         
+         if (callback) callback()
+      }
+   );
 }
 
 function getProfiles(callback) {
