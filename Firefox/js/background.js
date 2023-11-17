@@ -481,130 +481,128 @@ function createSnapshotIfNull() {
    })
 }
 
-function compareWithSnapshot() {
+async function compareWithSnapshot() {
    
-   return createSnapshotIfNull().then(checkForNewItems).then(res => {
+   await createSnapshotIfNull()
+   var { log, snapshot } = await checkForNewItems()
+   
+   return new Promise(function(resolve) {
+
+      var map = {}
       
-      var { log, snapshot } = res
-   
-      return new Promise(function(resolve) {
-   
-         var map = {}
+      setTimeout(function() {
          
-         setTimeout(function() {
+         var outer = snapshot[0].children
+         
+         compareItem(outer, 0, [], outer.slice())
+         
+         function findIndexByURL(list, url, title) {
+            for (var i = 0; i < list.length; i++) {
+               if (url && list[i].url == url || !url && list[i].title == title) return i
+            }
+            return -1
+         }
+         
+         function compareItem(list, i, path, _list, parentFinish) {
             
-            var outer = snapshot[0].children
-            
-            compareItem(outer, 0, [], outer.slice())
-            
-            function findIndexByURL(list, url, title) {
-               for (var i = 0; i < list.length; i++) {
-                  if (url && list[i].url == url || !url && list[i].title == title) return i
+            function onfinish() {
+               if (i+1 >= list.length) {
+                  if (parentFinish) parentFinish()
+                  else resolve(log)
                }
-               return -1
             }
             
-            function compareItem(list, i, path, _list, parentFinish) {
-               
-               function onfinish() {
-                  if (i+1 >= list.length) {
-                     if (parentFinish) parentFinish()
-                     else resolve(log)
-                  }
-               }
-               
-               if (list.length == 0) {
-                  onfinish()
-                  return
-               }
-               
-               try {
-                  browser.bookmarks.get(list[i].id, function(result) {
-                     if (browser.runtime.lastError || result == null) {
-                        var pos = findIndexByURL(_list, list[i].url, list[i].title)
-                        _list.splice(pos, 1)
-                        for (var j = pos; j < _list.length; j++) {
-                           _list[j].index--
-                        }
-                        log.push({ action: 'delete', url: list[i].url, title: list[i].title, path: path });
-                        
-                        (function (list, i) { onfinish() }) (list, i)
-                     } else {
-                        if (!result[0].url && isRootFolder(result[0].parentId)) {
-                           result[0].title = getDefaultNameById(result[0].id)
-                        }
-                        if (result[0].title != list[i].title) {
-                           log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
-                        }
-                        if (result[0].url != list[i].url) {
-                           log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
-                        }
-                        if (result[0].parentId != list[i].parentId) {
-                           var pathStr = path.join('>')
-                           if (!map[pathStr]) map[pathStr] = [[], []]
-                           var new_path = []
-                           getFullPath(result[0].parentId).then(function(new_path) {
-                              var pos = log.length
-                              while (pos > 0 && log[pos-1].action == 'modify' && 
-                                 JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
-                                 pos--
-                              }
-                              var details = { path: new_path, index: result[0].index }
-                              
-                              var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
-                              setBeforeAndAfter(_list, oldIndex, details)
-                              log.splice(pos, 0, { action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
-                              
-                              map[pathStr][1].push({ url: list[i].url, details });
-                              
-                              if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
-                           })
-                        }
-                        else if (result[0].index != list[i].index) {
-                           var pathStr = path.join('>')
-                           if (!map[pathStr]) map[pathStr] = [[], []]
-                           var details = { index: result[0].index }
+            if (list.length == 0) {
+               onfinish()
+               return
+            }
+            
+            try {
+               browser.bookmarks.get(list[i].id, function(result) {
+                  if (browser.runtime.lastError || result == null) {
+                     var pos = findIndexByURL(_list, list[i].url, list[i].title)
+                     _list.splice(pos, 1)
+                     for (var j = pos; j < _list.length; j++) {
+                        _list[j].index--
+                     }
+                     log.push({ action: 'delete', url: list[i].url, title: list[i].title, path: path });
+                     
+                     (function (list, i) { onfinish() }) (list, i)
+                  } else {
+                     if (!result[0].url && isRootFolder(result[0].parentId)) {
+                        result[0].title = getDefaultNameById(result[0].id)
+                     }
+                     if (result[0].title != list[i].title) {
+                        log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
+                     }
+                     if (result[0].url != list[i].url) {
+                        log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
+                     }
+                     if (result[0].parentId != list[i].parentId) {
+                        var pathStr = path.join('>')
+                        if (!map[pathStr]) map[pathStr] = [[], []]
+                        var new_path = []
+                        getFullPath(result[0].parentId).then(function(new_path) {
+                           var pos = log.length
+                           while (pos > 0 && log[pos-1].action == 'modify' && 
+                              JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
+                              pos--
+                           }
+                           var details = { path: new_path, index: result[0].index }
                            
                            var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
                            setBeforeAndAfter(_list, oldIndex, details)
-                           //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
+                           log.splice(pos, 0, { action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
                            
-                           if (details.index > oldIndex) {
-                              map[pathStr][1].push({ url: list[i].url, title: list[i].title, details })
-                           } else if (details.index < oldIndex) {
-                              map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
-                           }
+                           map[pathStr][1].push({ url: list[i].url, details });
+                           
                            if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
-                        } else {
-                           if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
-                        }
-                        if (list[i].children) {
-                           var title = list[i].title
-                           if (isRootFolder(list[i].parentId)) {
-                              title = getDefaultNameByIndex(i)
-                           }
-                           compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
-                        }
+                        })
                      }
-                     if (i+1 < list.length) {
-                        compareItem(list, i+1, path, _list, parentFinish)
-                     } else {
-                        // Directory end
+                     else if (result[0].index != list[i].index) {
                         var pathStr = path.join('>')
-                        if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
-                           var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
-                           var a = map[pathStr][index]
-                           for (var j = 0; j < a.length; j++) {
-                              log.push({ action: 'modify', url: a[j].url, title: a[j].title, path: path, details: a[j].details })
-                           }
-                           delete map[pathStr]
+                        if (!map[pathStr]) map[pathStr] = [[], []]
+                        var details = { index: result[0].index }
+                        
+                        var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
+                        setBeforeAndAfter(_list, oldIndex, details)
+                        //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
+                        
+                        if (details.index > oldIndex) {
+                           map[pathStr][1].push({ url: list[i].url, title: list[i].title, details })
+                        } else if (details.index < oldIndex) {
+                           map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
                         }
+                        if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
+                     } else {
+                        if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
                      }
-                  })
-               } catch (e) {}
-            }
-         }, 50)
-      })
+                     if (list[i].children) {
+                        var title = list[i].title
+                        if (isRootFolder(list[i].parentId)) {
+                           title = getDefaultNameByIndex(i)
+                        }
+                        compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
+                     }
+                  }
+                  if (i+1 < list.length) {
+                     compareItem(list, i+1, path, _list, parentFinish)
+                  } else {
+                     // Directory end
+                     var pathStr = path.join('>')
+                     if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
+                        var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
+                        var a = map[pathStr][index]
+                        for (var j = 0; j < a.length; j++) {
+                           log.push({ action: 'modify', url: a[j].url, title: a[j].title, path: path, details: a[j].details })
+                        }
+                        delete map[pathStr]
+                     }
+                  }
+               })
+            } catch (e) {}
+         }
+      }, 50)
    })
 }
 
@@ -763,48 +761,52 @@ var timer = setInterval(() => sync().catch(e => { console.log(e) }), syncInterva
 var changesToSend = []
 var syncing = false
 
-function sync() {
+async function sync() {
    if (!accessToken || !profileId || syncing) return Promise.reject()
    var _last = lastSync
    syncing = true
    pathCache = {}
-   return compareWithSnapshot()
-      .then(log => { changesToSend = log})
-      .then(applyRemoteUpdates)
-      .then(() => { lastSync = Date.now() + 1000 })
-      .then(() => { sendUpdates(changesToSend) })
-      .then(() => {
-         saveSnapshot()
-         browser.storage.local.set({ last_sync: lastSync })
-         syncing = false
-      })
-      .catch(() => { lastSync = _last; syncing = false })
+   try {
+      var changesToSend = await compareWithSnapshot()
+      await applyRemoteUpdates()
+      lastSync = Date.now() + 1000
+      await sendUpdates(changesToSend)
+      saveSnapshot()
+      browser.storage.local.set({ last_sync: lastSync })
+      syncing = false
+      return Promise.resolve()
+   } catch (e) {
+      lastSync = _last
+      syncing = false
+      return Promise.reject()
+   }
 }
 
-function applyRemoteUpdates() {
-   return fetch(origin + '/' + profileId + '/check?since=' + lastSync, {
-		method: 'GET',
-		headers: {
-			'Content-Type': 'application/json',
-			'Authorization': 'Bearer: ' + accessToken
-		}
-	})
-   .then(response => response.json())
-   .then(response => {
-      return new Promise(function(resolve) {
-         folderCache = {}
-         executeCommand(response.data, 0, resolve)
-         if (response.timestamp) {
-            lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
+async function applyRemoteUpdates() {
+   try {
+      var response = await fetch(origin + '/' + profileId + '/check?since=' + lastSync, {
+         method: 'GET',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer: ' + accessToken
          }
       })
-   })
-   .catch(e => {
+      response = await response.json()
+      folderCache = {}
+      for (var i = 0; i < response.data.length; i++) {
+         await executeCommand(response.data[i])
+      }
+      if (response.timestamp) {
+         lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
+      }
+      return Promise.resolve()
+   } catch(e) {
       console.log(e)
-   })
+      return Promise.reject()
+   }
 }
 
-function sendUpdates(log) {
+async function sendUpdates(log) {
    return fetch(origin + '/' + profileId + '/update', {
 		method: 'POST',
 		headers: {
@@ -815,45 +817,33 @@ function sendUpdates(log) {
 	})
 }
 
-function executeCommand(log, index, onfinish) {
-   if (!log.length || index >= log.length) {
-      if (onfinish) onfinish()
-      return
-   }
-   var next = function() {
-      if (index < log.length-1) {
-         executeCommand(log, index+1, onfinish)
-      } else {
-         if (onfinish) onfinish()
-      }
-   }
-   switch (log[index].action) {
+async function executeCommand(data) {
+   switch (data.action) {
       case 'add':
-         executeAddBookmark(log, index, next)
+         await executeAddBookmark(data)
          break
       case 'modify':
-         executeModifyBookmark(log, index, next)
+         await executeModifyBookmark(data)
          break
       case 'delete':
-         executeDeleteBookmark(log, index, next)
+         await executeDeleteBookmark(data)
          break
    }
 }
 
-function executeAddBookmark(log, index, callback) {
-   var data = log[index]
-   findFolderByPath(data.path).then(folder => {
-      if (!folder) folder = { id: 2 }
-      if (data.details.index < 0) {
-         data.details.index = 0
-      }
-      if (data.details.index > folder.children.length) {
-         data.details.index = folder.children.length
-      }
-      if (folder.children.find(el => (el.title == data.details.title && el.url == data.url))) {
-         if (callback) callback()
-         return
-      }
+async function executeAddBookmark(data) {
+   var folder = await findFolderByPath(data.path)
+   if (!folder) folder = { id: 2 }
+   if (data.details.index < 0) {
+      data.details.index = 0
+   }
+   if (data.details.index > folder.children.length) {
+      data.details.index = folder.children.length
+   }
+   if (folder.children.find(el => (el.title == data.details.title && el.url == data.url))) {
+      return Promise.resolve()
+   }
+   return new Promise(function (resolve, reject) {
       browser.bookmarks.create(
          {
             parentId: folder.id,
@@ -863,44 +853,44 @@ function executeAddBookmark(log, index, callback) {
          },
          function(bookmark) {
             console.log("Added remote bookmark: " + bookmark.url);
-            if (callback) callback()
+            resolve()
          }
       );
    });
 }
 
-function executeModifyBookmark(log, index, callback) {
-   var data = log[index]
-   findBookmarkByPath(data.path, data.url, data.title).then(item => {
-      if (!item) return
-      if (data.details.index !== undefined || data.details.path) {
-         var details = {}
-         if (data.details.index !== undefined) {
-            details.index = data.details.index
-            delete data.details.index
-         }
+async function executeModifyBookmark(data) {
+   var item = await findBookmarkByPath(data.path, data.url, data.title)
+   if (!item) return Promise.resolve()
+   if (data.details.index !== undefined || data.details.path) {
+      var details = {}
+      if (data.details.index !== undefined) {
+         details.index = data.details.index
+         delete data.details.index
+      }
+      return new Promise(async function (resolve, reject) {
          if (data.details.path) {
-            findFolderByPath(data.details.path).then(folder => {
-               if (folder != null) {
-                  details.parentId = folder.id
-               }
+            var folder = await findFolderByPath(data.details.path)
             
-               delete data.details.path
-               
-               browser.bookmarks.getSubTree(item.parentId, function(parent) {
-                  if (details.index != undefined) {
-                     calculateIndex(data, item.index, parent[0], details)
+            if (folder != null) {
+               details.parentId = folder.id
+            }
+         
+            delete data.details.path
+            
+            browser.bookmarks.getSubTree(item.parentId, function(parent) {
+               if (details.index != undefined) {
+                  calculateIndex(data, item.index, parent[0], details)
+               }
+               browser.bookmarks.move(
+                  item.id,
+                  details,
+                  function(bookmark) {
+                     console.log("Moved remote bookmark: " + bookmark.url);
+                     resolve()
                   }
-                  browser.bookmarks.move(
-                     item.id,
-                     details,
-                     function(bookmark) {
-                        console.log("Moved remote bookmark: " + bookmark.url);
-                        if (callback) callback()
-                     }
-                  );
-               });
-            })
+               );
+            });
          } else {
             browser.bookmarks.getSubTree(item.parentId, function(parent) {
                calculateIndex(data, item.index, parent[0], details)
@@ -909,23 +899,23 @@ function executeModifyBookmark(log, index, callback) {
                   details,
                   function(bookmark) {
                      console.log("Moved remote bookmark: " + bookmark.url);
-                     if (callback) callback()
+                     resolve()
                   }
                );
             });
          }
-      }
-      if (data.details.url || data.details.title) {
-         browser.bookmarks.update(
-            item.id,
-            data.details,
-            function(bookmark) {
-               console.log("Modified remote bookmark: " + bookmark.url);
-               if (callback) callback()
-            }
-         );
-      }
-   });
+         if (data.details.url || data.details.title) {
+            browser.bookmarks.update(
+               item.id,
+               data.details,
+               function(bookmark) {
+                  console.log("Modified remote bookmark: " + bookmark.url);
+                  resolve()
+               }
+            );
+         }
+      });
+   }
 }
 
 function calculateIndex(data, pos, folder, details) {
@@ -967,16 +957,17 @@ function calculateIndex(data, pos, folder, details) {
    }
 }
 
-function executeDeleteBookmark(log, index, callback) {
-   var data = log[index]
-   var item = findBookmarkByPath(data.path, data.url, data.title).then(item => {
-      if (!item) return
+async function executeDeleteBookmark(data) {
+   var item = await findBookmarkByPath(data.path, data.url, data.title)
+   if (!item) return Promise.resolve()
+
+   return new Promise(function (resolve, reject) {
       if (!item.children) {
          browser.bookmarks.remove(
             item.id,
             function(bookmark) {
                console.log("Deleted remote bookmark: " + item.url);
-               if (callback) callback()
+               resolve()
             }
          );
       } else {
@@ -984,7 +975,7 @@ function executeDeleteBookmark(log, index, callback) {
             item.id,
             function(folder) {
                console.log("Deleted remote folder: " + item.title);
-               if (callback) callback()
+               resolve()
             }
          );
       }
@@ -1030,7 +1021,7 @@ function findFolderByPath(path) {
    }
 }
 
-function findBookmarkByPath(path, url, title) {
+async function findBookmarkByPath(path, url, title) {
    var folder = 0
    return (function(path) {
       return new Promise(function(resolve) {
