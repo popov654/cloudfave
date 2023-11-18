@@ -84,7 +84,7 @@ async function getProfiles() {
 async function getProfileName() {
    if (!accessToken || !profileId) return
    try {
-      var res = await fetch(origin + '/' + localStorage.profileId + '/info', {
+      var res = await fetch(origin + '/' + profileId + '/info', {
          headers: {
             'Authorization': 'Bearer: ' + accessToken
          }
