@@ -634,30 +634,26 @@ function checkForNewItems() {
       var log = []
       
       browser.bookmarks.getTree(function(tree){
-         folder = getRootFolder(tree)
-
-         browser.bookmarks.getSubTree(folder.id, function(result) {
-            browser.storage.local.get(['snapshot'], function(res) {
-               var snapshot = res.snapshot, n = 0
-               walkTree(result, function(element) {
-                  setTimeout(() => {
-                     getFullPath(element.parentId).then(path => {
-                        var elementDepth = path.length
-                        var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
-                        var found = searchInFolderById(element.id, elementDepth, root.children, 0)
-                        if (!found) {
-                           console.log(element.url ? 'New bookmark found: ' + element.url : 'New folder found: ' + element.title)
-                           if (log && log instanceof Array) {
-                              log.push({ action: 'add', url: element.url, path, details: { title: element.title, index: element.index }})
-                           }
-                           Tree.insert(snapshot[0], element, path)
+         browser.storage.local.get(['snapshot'], function(res) {
+            var snapshot = res.snapshot, n = 0
+            walkTree(tree[0].children, function(element) {
+               setTimeout(() => {
+                  getFullPath(element.parentId).then(path => {
+                     var elementDepth = path.length
+                     var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
+                     var found = searchInFolderById(element.id, elementDepth, root.children, 0)
+                     if (!found) {
+                        console.log(element.url ? 'New bookmark found: ' + element.url : 'New folder found: ' + element.title)
+                        if (log && log instanceof Array) {
+                           log.push({ action: 'add', url: element.url, path, details: { title: element.title, index: element.index }})
                         }
                         Tree.insert(snapshot[0], element, path)
-                     })
-                  }, 2*(n++))
-               }, function() {
-                  resolve({ log, snapshot })
-               })
+                     }
+                     Tree.insert(snapshot[0], element, path)
+                  })
+               }, 2*(n++))
+            }, function() {
+               resolve({ log, snapshot })
             })
          })
       })
