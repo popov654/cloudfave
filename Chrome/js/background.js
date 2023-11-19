@@ -613,7 +613,7 @@ function checkForNewItems() {
       
       browser.bookmarks.getTree(function(tree){
          browser.storage.local.get(['snapshot'], function(res) {
-            var snapshot = res.snapshot, n = 0
+            var snapshot = res.snapshot, c1 = 0, c2 = 0
             walkTree(tree[0].children, function(element) {
                setTimeout(() => {
                   getFullPath(element.parentId).then(path => {
@@ -627,11 +627,9 @@ function checkForNewItems() {
                         }
                         Tree.insert(snapshot[0], element, path)
                      }
-                     Tree.insert(snapshot[0], element, path)
+                     if (c1 == ++c2) resolve({ log, snapshot })
                   })
-               }, 2*(n++))
-            }, function() {
-               resolve({ log, snapshot })
+               }, 2*(++c1))
             })
          })
       })
@@ -647,6 +645,22 @@ function walkTree(list, callback, onfinish) {
       }
       if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
          onfinish()
+      }
+   }
+}
+
+function walkTreeAsync(list, callback, onfinish, promises) {
+   if (!promises) promises = []
+   for (var i = 0; i < list.length; i++) {
+      if (list[i].parentId && list[i].parentId != '0') {
+         var p = callback(list[i])
+         if (p instanceof Promise) promises.push(p)
+      }
+      if (list[i].children) {
+         walkTreeAsync(list[i].children, callback, onfinish, promises)
+      }
+      if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
+         Promise.all(promises).then(onfinish)
       }
    }
 }

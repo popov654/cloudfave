@@ -635,7 +635,7 @@ function checkForNewItems() {
       
       browser.bookmarks.getTree(function(tree){
          browser.storage.local.get(['snapshot'], function(res) {
-            var snapshot = res.snapshot, n = 0
+            var snapshot = res.snapshot, c1 = 0, c2 = 0
             walkTree(tree[0].children, function(element) {
                setTimeout(() => {
                   getFullPath(element.parentId).then(path => {
@@ -649,11 +649,9 @@ function checkForNewItems() {
                         }
                         Tree.insert(snapshot[0], element, path)
                      }
-                     Tree.insert(snapshot[0], element, path)
+                     if (c1 == ++c2) resolve({ log, snapshot })
                   })
-               }, 2*(n++))
-            }, function() {
-               resolve({ log, snapshot })
+               }, 2*(++c1))
             })
          })
       })
