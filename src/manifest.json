@@ -17,7 +17,9 @@
     {
       "matches": [
         "*://cloudfave.ext.io/oauth/*",
-        "*://cloudfave.ext.io/setpassword*"
+        "*://cloudfave.ext.io/setpassword*",
+        "*://cloudfave.org/oauth/*",
+        "*://cloudfave.org/setpassword*"
       ],
       "js": [ "js/oauth_inject.js" ]
     }
@@ -29,7 +31,8 @@
   ],
   "host_permissions": [
     "*://localhost/*",
-    "*://cloudfave.ext.io/*"
+    "*://cloudfave.ext.io/*",
+    "*://cloudfave.org/*"
   ],
 
   "action": {
