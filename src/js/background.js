@@ -107,6 +107,9 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          accessToken = request.access_token
          browser.storage.local.set({ access_token: accessToken })
       }
+      else if (request.operation == 'register') {
+         register(request.data.username, request.data.password).then(res => sendResponse(res))
+      }
       else if (request.operation == 'createProfile') {
          exportData(async function(result) {
             var res = await createProfile(request.name, result)
@@ -185,6 +188,27 @@ async function logout() {
    accessToken = null
    profileId = null
    browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
+}
+
+async function register(username, password) {
+   if (!username || !username.length || !password || !password.length) {
+      return
+   }
+   try {
+      var res = await fetch(origin + '/register', {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json'
+         },
+         body: JSON.stringify({ username, password })
+      })
+      var data = await res.json()
+      return { status: res.status, message: data.message, error: data.error }
+   } catch (e) {
+      res = { error: e, status: 500 }
+      console.log(e)
+      return res
+   }
 }
 
 async function authorize(username, password, secure) {
