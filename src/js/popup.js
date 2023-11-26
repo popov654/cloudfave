@@ -41,20 +41,21 @@ window.addEventListener("DOMContentLoaded", function() {
       
       var btn = loginForm.getElementsByTagName('button')[0]
       btn.classList.add('disabled')
+      hideError()
       getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
       
       browser.runtime.sendMessage({ operation: 'authorize', data: { username, password } }, function(result) {
          getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
-         if (result === null) {
+         if (result === null || result.status == 500) {
             document.getElementById('loginScreen').classList.add('hidden')
             setTimeout(function() {
                document.getElementById('errorScreen').classList.remove('hidden')
             }, 200)
-         } else if (result === false) {
+         } else if (result.status >= 400 && result.status < 500) {
             btn.classList.remove('disabled')
-            document.getElementById('loginError').classList.add('visible')
-         } else {
-            document.getElementById('loginError').classList.remove('visible')
+            showError('Invalid username or password')
+         } else if (result.status == 200) {
+            hideError()
             document.getElementById('loginScreen').classList.add('hidden')
             browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
                if (result) loadProfiles(result)
@@ -66,6 +67,15 @@ window.addEventListener("DOMContentLoaded", function() {
       })
       
       return false
+   }
+   
+   function showError(msg) {
+      document.getElementById('loginError').textContent = msg
+      document.getElementById('loginError').classList.add('visible')
+   }
+   
+   function hideError() {
+      document.getElementById('loginError').classList.remove('visible')
    }
    
    var profilesList = document.getElementById('profilesList')
@@ -124,8 +134,10 @@ window.addEventListener("DOMContentLoaded", function() {
          el.innerHTML = '<div class="title">' + profile.name + '</div><div class="created_at">Created at ' + time + '</div>'
          list.appendChild(el)
       })
-      initProfilesList()
-      performChecks(profiles)
+      setTimeout(function() {
+         initProfilesList()
+         performChecks(profiles)
+      }, 0)
    }
    
    function initProfilesList() {
@@ -487,7 +499,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('startScreen').classList.remove('hidden')
                   document.getElementById('logout').classList.remove('hidden')
-                  loadProfiles(result)
+                  loadProfiles(result.data)
                }
                else if (result === null) {
                   lastConnectionError = Date.now()

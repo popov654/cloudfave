@@ -58,11 +58,8 @@ async function getProfiles() {
             'Authorization': 'Bearer: ' + accessToken
          }
       })
-      res = await res.json()
-      if (res.data) {
-         profiles = res.data
-         return profiles
-      }
+      let result = await res.json()
+      return { status: res.status, data: result.data, error: result.error }
    } catch (e) {
       return null
    }
@@ -214,10 +211,11 @@ async function doAuth(username, password, secure, callback) {
          accessToken = result.token
          browser.storage.local.set({ access_token: accessToken })
       }
-      return res.status == 200
+      return { status: res.status, message: result.message, error: result.error }
    } catch (e) {
+      res = { error: e, status: 500 }
       console.log(e)
-      return null
+      return res
    }
 }
 
