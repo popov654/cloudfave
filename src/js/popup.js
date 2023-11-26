@@ -61,7 +61,12 @@ window.addEventListener("DOMContentLoaded", function() {
             hideError()
             document.getElementById('loginScreen').classList.add('hidden')
             browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
-               if (result) loadProfiles(result)
+               if (result && result.data) {
+                  loadProfiles(result.data)
+               }
+               if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+               }
             })
             setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
@@ -156,6 +161,8 @@ window.addEventListener("DOMContentLoaded", function() {
             list.children[1].style.height = Math.ceil(c.children.length * c.children[0].clientHeight) + parseFloat(st0.paddingTop) + parseFloat(st0.paddingBottom) +
                                              Math.round(parseFloat(st0.borderTopWidth)) + Math.round(parseFloat(st0.borderBottomWidth)) + 'px'
             XScroll.scrollToY(list.children[1], 0)
+            document.getElementById('logout').classList.remove('hidden')
+            document.getElementById('startScreen').style.paddingBottom = '40px'
          }, 800)
       }
       list.children[0].innerHTML = ''
@@ -526,12 +533,17 @@ window.addEventListener("DOMContentLoaded", function() {
          document.getElementById('loginScreen').classList.add('hidden')
          if (screen == 1) {
             var timer = null
+            document.getElementById('logout').classList.add('hidden')
             browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
-               if (result) {
+               if (result && result.data) {
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('startScreen').classList.remove('hidden')
-                  document.getElementById('logout').classList.remove('hidden')
                   loadProfiles(result.data)
+               }
+               else if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+                  document.getElementById('loginScreen').classList.remove('hidden')
+                  clearTimeout(timer)
                }
                else if (result === null) {
                   lastConnectionError = Date.now()
@@ -545,18 +557,21 @@ window.addEventListener("DOMContentLoaded", function() {
             })
             if (!disconnected) timer = setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
-               document.getElementById('logout').classList.remove('hidden')
             }, 200)
          } else {
             var timer = null
             browser.runtime.sendMessage({ operation: 'getProfileName' }, function(result) {
-               if (result) {
+               if (result && result.name) {
                   setProfileName(result.name)
                   updateLastSyncTime()
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('mainScreen').classList.remove('hidden')
                   document.getElementById('logout').classList.remove('hidden')
-               } else if (!result && result !== undefined) {
+               } else if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+                  document.getElementById('loginScreen').classList.remove('hidden')
+                  clearTimeout(timer)
+               } else if (result === null) {
                   lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('mainScreen').classList.add('hidden')
