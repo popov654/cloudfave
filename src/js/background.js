@@ -61,41 +61,40 @@ function loadUserConfig(callback) {
    );
 }
 
-function getProfiles(callback) {
+async function getProfiles() {
    s.profiles = '[]'
    if (!accessToken) return
-   var xhr = new XMLHttpRequest()
-   xhr.open('GET', origin + '/getProfiles', true)
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      try {
-         var res = JSON.parse(this.responseText)
-         if (res.data) {
-            profiles = res.data
-            s.profiles = JSON.stringify(profiles)
-            if (callback) callback(profiles)
+   try {
+      var res = await fetch(origin + '/getProfiles', {
+         headers: {
+            'Authorization': 'Bearer: ' + accessToken
          }
-      } catch (ex) {}
+      })
+      res = await res.json()
+      if (res.data) {
+         profiles = res.data
+         s.profiles = JSON.stringify(profiles)
+         return profiles
+      }
+   } catch (e) {
+      return null
    }
-   xhr.onerror = function() {
-      if (callback) callback(null)
-   }
-   xhr.send(null)
 }
 
-function getProfileName(callback) {
+async function getProfileName() {
    if (!accessToken || !profileId) return
-   var xhr = new XMLHttpRequest()
-   xhr.open('GET', origin + '/' + localStorage.profileId + '/info', true)
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      s.profileName = JSON.parse(this.responseText).name
-      if (callback) callback(1)
+   try {
+      var res = await fetch(origin + '/' + localStorage.profileId + '/info', {
+         headers: {
+            'Authorization': 'Bearer: ' + accessToken
+         }
+      })
+      res = await res.json()
+      profileName = res.name
+      return profileName
+   } catch (e) {
+      return null
    }
-   xhr.onerror = function() {
-      if (callback) callback(0)
-   }
-   xhr.send(null)
 }
 
 extension.onMessage.addListener(function(request, sender, sendResponse) {
@@ -104,41 +103,40 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({ result })
    }
    else if (request.operation == 'getProfileName') {
-      getProfileName(sendResponse)
+      getProfileName().then(() => sendResponse({ name: profileName }))
    }
    else if (request.operation == 'setProfileId') {
       profileId = s.profileId = request.data.id
       browser.storage.local.set({ profileId: request.data.id }, function() {
-         getProfileName(sendResponse)
+         getProfileName().then(() => sendResponse({ name: profileName }))
       })
    }
    else if (request.operation == 'update') {
       updateUserConfig(request.data)
    }
    else if (request.operation == 'authorize') {
-      authorize(request.data.username, request.data.password, false, sendResponse)
+      authorize(request.data.username, request.data.password, false).then(res => sendResponse(res))
    }
    else if (request.operation == 'oauthLogin') {
       accessToken = s.accessToken = request.access_token
       browser.storage.local.set({ access_token: accessToken })
    }
    else if (request.operation == 'createProfile') {
-      exportData(function(result) {
-         createProfile(request.name, result, function(res) {
-            if (!res || !res.profileId) {
-               sendResponse(0)
-            } else {
-               lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
-               profileId = s.profileId = res.profileId
-               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
-                  sendResponse(res.profileId)
-               })
-            }
-         })
+      exportData(async function(result) {
+         var res = await createProfile(request.name, result)
+         if (!res || !res.profileId) {
+            sendResponse(0)
+         } else {
+            lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
+            profileId = s.profileId = res.profileId
+            browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
+               sendResponse(res.profileId)
+            })
+         }
       })
    }
    else if (request.operation == 'renameProfile') {
-      renameProfile(request.data.value)
+      renameProfile(request.data.value).then(() => sendResponse(1))
    }
    else if (request.operation == 'loadProfile') {
       var onFinish = function(result) {
@@ -148,7 +146,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          }
          saveSnapshot()
       }
-      loadData(request.data.id, function(result) {
+      loadData(request.data.id).then(result => {
          if (request.data.merge) {
             exportData(function(res) {
                mergeData(request.data.id, res)
@@ -167,9 +165,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       })
    }
    else if (request.operation == 'getProfiles') {
-      getProfiles(function(result) {
-         sendResponse(result)
-      })
+      getProfiles().then(res => sendResponse(res))
    }
    else if (request.operation == 'saveSnapshot') {
       saveSnapshot(function() {
@@ -180,133 +176,129 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       })
    }
    else if (request.operation == 'sync') {
-      sync().then(() => {
-         sendResponse(1)
-      }).catch(() => {
-         sendResponse(0)
-      })
+      sync()
+         .then(() => {
+            sendResponse(1)
+         })
+         .catch(() => {
+            sendResponse(0)
+         })
    }
    else if (request.operation == 'logout') {
-      logout(() => {
-         sendResponse(1)
-      })
+      logout().then(() => sendResponse(1))
    }
    return true
 })
 
-function logout(callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('GET', origin + '/logout?ssid=' + accessToken, true)
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      accessToken = s.accessToken = null
-      profileId = s.profileId = null
-      browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
-      if (callback) callback()
-   }
-   xhr.send(null)
+async function logout() {
+   await fetch(origin + '/logout?ssid=' + accessToken, {
+      headers: {
+			'Authorization': 'Bearer: ' + accessToken
+		}
+   })
+   accessToken = s.accessToken = null
+   profileId = s.profileId = null
+   browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
 }
 
-function authorize(username, password, secure, callback) {
+async function authorize(username, password, secure) {
    if (!username || !username.length || !password || !password.length) {
       return
    }
    if (accessToken != null) {
-      logout(function() {
-         doAuth(username, password, secure, callback)
-      })
-   } else {
-      doAuth(username, password, secure, callback)
+      await logout()
    }
+   return await doAuth(username, password, secure)
 }
 
-function doAuth(username, password, secure, callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('POST', origin + '/login', true)
-   xhr.setRequestHeader('Content-Type', 'application/json')
-   xhr.onload = function() {
-      if (this.status == 200) {
-         accessToken = JSON.parse(this.responseText).token
+async function doAuth(username, password, secure, callback) {
+   try {
+      var res = await fetch(origin + '/login', {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json'
+         },
+         body: JSON.stringify({ username, password })
+      })
+      if (res.status == 200) {
+         var result = await res.json()
+         accessToken = result.token
          browser.storage.local.set({ access_token: accessToken })
          s.accessToken = accessToken
       }
-      if (callback) callback(this.status == 200)
+      return res.status == 200
+   } catch (e) {
+      console.log(e)
+      return false
    }
-   xhr.onerror = function() {
-      if (callback) callback(null)
-   }
-   xhr.send(JSON.stringify({ username, password }))
 }
 
-function loadProfilesList(callback) {
+async function loadProfilesList() {
    if (!userId || !accessToken) return
-   var xhr = new XMLHttpRequest()
-   xhr.open('GET', origin + '/getProfiles', true)
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      var result = JSON.parse(this.responseText)
-      if (result.data) {
-         profiles = result.data
-         s.profiles = JSON.stringify(profiles)
+   var res = await fetch(origin + '/getProfiles', {
+      headers: {
+         'Authorization': 'Bearer: ' + accessToken
       }
-      if (callback) callback(profiles)
+   })
+   var result = await res.json()
+   if (result.data) {
+      profiles = result.data
+      s.profiles = JSON.stringify(profiles)
    }
-   xhr.send(null)
+   return profiles
 }
 
-function loadData(profile_id, callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('GET', origin + '/' + profile_id + '/get', true)
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      var result = JSON.parse(this.response)
-      console.log(result)
-      callback(result)
-   }
-   xhr.send(null)
+async function loadData(profile_id) {
+   var res = await fetch(origin + '/' + profile_id + '/get', {
+      headers: {
+         'Authorization': 'Bearer: ' + accessToken
+      }
+   })
+   return await res.json()
 }
 
-function mergeData(profile_id, data, callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('POST', origin + '/' + profile_id + '/merge', true)
-   xhr.setRequestHeader('Content-Type', 'application/json')
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      var result = JSON.parse(this.response)
-      console.log(result)
-      if (callback) callback(result)
-   }
-   xhr.send(JSON.stringify(data))
+async function mergeData(profile_id, data) {
+   var res = await fetch(origin + '/' + profile_id + '/merge', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json',
+         'Authorization': 'Bearer: ' + accessToken
+      }, 
+      body: JSON.stringify(data)
+   })
+   return await res.json()
 }
 
-function createProfile(name, data, callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('POST', origin + '/createProfile', true)
-   xhr.setRequestHeader('Content-Type', 'application/json')
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      var result = JSON.parse(this.response)
-      if (callback) callback(result)
+async function createProfile(name, data) {
+   try {
+      var res = await fetch(origin + '/createProfile', {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer: ' + accessToken
+         },
+         body: JSON.stringify({ name, data })
+      })
+      return await res.json()
+   } catch (e) {
+      return null
    }
-   xhr.onerror = function() {
-      if (callback) callback(0)
-   }
-   xhr.send(JSON.stringify({ name, data }))
 }
 
-function renameProfile(name, callback) {
-   var xhr = new XMLHttpRequest()
-   xhr.open('POST', origin + '/' + profileId + '/rename', true)
-   xhr.setRequestHeader('Content-Type', 'application/json')
-   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
-   xhr.onload = function() {
-      var result = JSON.parse(this.response)
-      if (callback) callback(result)
+async function renameProfile(name) {
+   try {
+      var res = await fetch(origin + '/' + profileId + '/rename', {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer: ' + accessToken
+         },
+         body: JSON.stringify({ value: name })
+      })
+      return await res.json()
+   } catch (e) {
+      return null
    }
-   xhr.onerror = function() {
-      if (callback) callback(result)
-   }
-   xhr.send(JSON.stringify({ value: name }))
 }
 
 function importData(data, callback) {
