@@ -512,7 +512,7 @@ XScroll.init = function(el, force) {
    
    var st = el.currentStyle || getComputedStyle(el, '')
    
-   if (el.force_scroll_x === undefined && el.getAttribute('xscroll-allow-async')) {
+   if (el.force_scroll_x === undefined && el.getAttribute('xscroll-allow-async') !== null) {
       XScroll.private.checkOverflow(el, c, st)
       setTimeout(function() { XScroll.init(el, force) }, 130)
       return
@@ -736,6 +736,11 @@ XScroll.init = function(el, force) {
    if (c.style.whiteSpace == 'nowrap' && !XScroll.hasXScroll(el)) {
       el.className += ' scroll_x'
    }
+   
+   setTimeout(function() {
+      if (XScroll.hasXScroll(el)) XScroll.private.updateThumbXPosition(el)
+      if (XScroll.hasYScroll(el)) XScroll.private.updateThumbYPosition(el)
+   }, 0)
    
    addEventHandler(el, 'scroll', function() {
       this.floatPositionX = this.scrollWidth > 0 ? this.scrollLeft / this.scrollWidth : 0
