@@ -399,6 +399,8 @@ function importData(data, callback) {
       function processItem(data, index, parent, itemComplete, allComplete) {
          var parent_id = parent && folderId(parent.id) || folder.id
          
+         data[index].path = parent && parent.path ? parent.path.concat(data[index].title) : []
+         
          if (parent && !parent.ex_list) {
             parent.ex_list = []
             parent.total_list = []
@@ -435,7 +437,8 @@ function importData(data, callback) {
                     index < 2 && parent_id == 0 ||
                     isFirefox && index < 4 && parent_id == firefoxIds[0] ||
                     !data[index].title && !data[index].url ||
-                    exists
+                    exists || containsPath(ignoredFolders, data[index].path)
+         
          if (!skip) {
             browser.bookmarks.create(
                {
@@ -556,7 +559,7 @@ async function compareWithSnapshot() {
                }
             }
             
-            if (list.length == 0) {
+            if (list.length == 0 || containsPath(ignoredFolders, path)) {
                onfinish()
                return
             }
@@ -619,9 +622,9 @@ async function compareWithSnapshot() {
                         }
                         if (!list[i].children) onfinish()
                      } else {
-                        if (!list[i].children) onfinish()
+                        if (!list[i].children || containsPath(ignoredFolders, path.concat(list[i].title))) onfinish()
                      }
-                     if (list[i].children) {
+                     if (list[i].children && !containsPath(ignoredFolders, path.concat(list[i].title))) {
                         var title = list[i].title
                         if (isRootFolder(list[i].parentId)) {
                            title = getDefaultNameByIndex(i)
@@ -668,6 +671,23 @@ function setBeforeAndAfter(list, pos, details) {
    details.folder_size = list.length
 }
 
+function containsPath(list, path) {
+   for (var i = 0; i < list.length; i++) {
+      if (!list[i].length || list[i].length != path.length) {
+         continue
+      }
+      var flag = true
+      for (var j = 0; j < list[i].length; j++) {
+         if (list[i][j] != path[j]) {
+            flag = false
+            break
+         }
+      }
+      if (flag) return true
+   }
+   return false
+}
+
 function checkForNewItems() {
    
    return new Promise(function(resolve) {
@@ -681,6 +701,10 @@ function checkForNewItems() {
             walkTree(tree[0].children, function(element) {
                setTimeout(() => {
                   getFullPath(element.parentId).then(path => {
+                     if (containsPath(ignoredFolders, path)) {
+                        if (c1 == ++c2) resolve({ log, snapshot })
+                        return
+                     }
                      var elementDepth = path.length
                      var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
                      var found = searchInFolderById(element.id, elementDepth, root.children, 0)
@@ -858,6 +882,9 @@ async function sendUpdates(log) {
 }
 
 async function executeCommand(data) {
+   if (containsPath(ignoredFolders, data.path)) {
+      return
+   }
    switch (data.action) {
       case 'add':
          await executeAddBookmark(data)
