@@ -1093,21 +1093,22 @@ const Tree = {
    },
    getDirectoryStructure: function(root) {
 
-      function filterTree(root) {
+      function filterTree(root, path) {
          var new_list = root.children.filter(el => el.children);
          for (var i = 0; i < new_list.length; i++) {
             var copy = {};
             Object.assign(copy, new_list[i]);
             new_list[i] = copy;
-            filterTree(new_list[i]);
+            new_list[i].path = path.concat(new_list[i].title);
+            filterTree(new_list[i], new_list[i].path);
          }
          root.children = new_list;
-         return new_list;
       }
 
       var copy = {};
       Object.assign(copy, root);
-      return filterTree(copy);
+      filterTree(copy, []);
+      return copy.children;
    },
    walkTree: function(list, callback) {
       for (var i = 0; i < list.length; i++) {
