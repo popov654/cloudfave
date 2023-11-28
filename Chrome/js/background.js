@@ -565,7 +565,7 @@ function compareWithSnapshot() {
                         }
                         log.push({ action: 'delete', url: list[i].url, title: list[i].title, path: path });
                         
-                        (function (list, i) { onfinish() }) (list, i)
+                        onfinish()
                      } else {
                         if (!result[0].url && isRootFolder(result[0].parentId)) {
                            result[0].title = getDefaultNameById(result[0].id)
@@ -594,7 +594,7 @@ function compareWithSnapshot() {
                               
                               map[pathStr][1].push({ url: list[i].url, details });
                               
-                              if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
+                              if (!list[i].children) onfinish()
                            })
                         }
                         else if (result[0].index != list[i].index) {
@@ -611,9 +611,9 @@ function compareWithSnapshot() {
                            } else if (details.index < oldIndex) {
                               map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
                            }
-                           if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
+                           if (!list[i].children) onfinish()
                         } else {
-                           if (!list[i].children || containsPath(ignoredFolders, path.concat(list[i].title))) (function (list, i) { onfinish() }) (list, i)
+                           if (!list[i].children || containsPath(ignoredFolders, path.concat(list[i].title))) onfinish()
                         }
                         if (list[i].children && !containsPath(ignoredFolders, path.concat(list[i].title))) {
                            var title = list[i].title
