@@ -82,10 +82,10 @@ function getProfileName(callback) {
    xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
    xhr.onload = function() {
       s.profileName = JSON.parse(this.responseText).name
-      if (callback) callback(1)
+      if (callback) callback({ name: s.profileName })
    }
    xhr.onerror = function() {
-      if (callback) callback(0)
+      if (callback) callback(null)
    }
    xhr.send(null)
 }

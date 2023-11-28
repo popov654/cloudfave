@@ -77,17 +77,17 @@ function getProfileName(callback) {
    xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
    xhr.onload = function() {
       s.profileName = JSON.parse(this.responseText).name
-      if (callback) callback(1)
+      if (callback) callback({ name: s.profileName })
    }
    xhr.onerror = function() {
-      if (callback) callback(0)
+      if (callback) callback(null)
    }
    xhr.send(null)
 }
 
 extension.onMessage.addListener(function(request, sender, sendResponse) {
    if (request.operation == 'getUIScreen') {
-      var result = accessToken == null ? 0 : (profileId == null ? 1 : 2)
+      var result = accessToken == null ? 0 : (profileId == null ? 1 : (!ignoredFolders ? 2 : 3))
       sendResponse({ result })
    }
    else if (request.operation == 'getProfileName') {
