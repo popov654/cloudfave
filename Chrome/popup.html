@@ -12,10 +12,12 @@
            opacity: 0;
         }
         .wrapper > div {
+           box-sizing: border-box;
            display: block;
            padding: 20px 16px;
-           width: 280px;
+           width: 100%;
            transition: opacity ease 0.75s 0.2s;
+           overflow: hidden;
         }
         input {
            font-size: 15px;
@@ -243,62 +245,64 @@
            fill: #c3c3c8;
         }
         
+        #loaderWrap {
+           padding: 6px 0px;
+           margin-top: -12px;
+        }
         .loader {
-            margin: 16px auto;
-            width: 40px;
-            height: 40px;
-            border: 6px solid #236cd6;
-            border-bottom-color: transparent;
-            border-radius: 50%;
-            display: inline-block;
-            box-sizing: border-box;
-            animation: rotation 1s linear infinite;
-         }
-         #logout {
-            position: absolute;
-            bottom: 16px;
-         }
-         #logoutLink {
-            text-decoration: underline;
-            color: #637fa6;
-            cursor: pointer;
-         }
-         #logoutLink:hover {
-            color: #5896bc;
-         }
-         #logout.hidden {
-            display: none;
-         }
+           margin: 16px auto;
+           width: 40px;
+           height: 40px;
+           border: 6px solid #236cd6;
+           border-bottom-color: transparent;
+           border-radius: 50%;
+           display: inline-block;
+           box-sizing: border-box;
+           animation: rotation 1s linear infinite;
+        }
+        #logout {
+           position: absolute;
+           left: 0px;
+           bottom: 16px;
+        }
+        #logoutLink {
+           text-decoration: underline;
+           color: #637fa6;
+           cursor: pointer;
+        }
+        #logoutLink:hover {
+           color: #5896bc;
+        }
+        #logout.hidden {
+           display: none;
+        }
 
-         @keyframes rotation {
-            0% {
-               transform: rotate(0deg);
-            }
-            100% {
-               transform: rotate(360deg);
-            }
-         }
+        @keyframes rotation {
+           0% {
+              transform: rotate(0deg);
+           }
+           100% {
+              transform: rotate(360deg);
+           }
+        }
 
-         .xscroll_thumb_horz, .xscroll_thumb_vert {
-            background: #ccc;
-            border-radius: 3px;
-         }
-         .xscroll_thumb_horz:hover, .xscroll_thumb_vert:hover {
-            background: #cfcfcf;
-         }
-         .xscroll_btn_left:hover, .xscroll_btn_right:hover,
-         .xscroll_btn_up:hover, .xscroll_btn_down:hover {
-            opacity: 0.8;
-         }
+        .xscroll_thumb_horz, .xscroll_thumb_vert {
+           background: #ccc;
+           border-radius: 3px;
+        }
+        .xscroll_thumb_horz:hover, .xscroll_thumb_vert:hover {
+           background: #cfcfcf;
+        }
+        .xscroll_btn_left:hover, .xscroll_btn_right:hover,
+        .xscroll_btn_up:hover, .xscroll_btn_down:hover {
+           opacity: 0.8;
+        }
     </style>
     <script src="js/xscroll.js"></script>
     <script src="js/popup.js"></script>
 </head>
 <body>
 <div class="wrapper" style="text-align: center">
-   <!-- <div class="line"><button>Create new</button></div>
-   <div class="line"><button>Get created</button></div>
-   <div class="line"><button>Save snapshot</button></div> -->
    <div id="loginScreen">
       <form id="loginForm">
          <div class="line"><div style="width: 100%; height: 80px; background: url('img/logo.png') center center no-repeat; background-size: contain"></div></div>
@@ -337,7 +341,7 @@
       </label></div>
       <div class="line"><center><button id="nextButton">Next</button></center></div>
    </div>
-   <div id="mainScreen" style="height: 120px" class="hidden">
+   <div id="mainScreen" style="height: 180px" class="hidden">
       <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
          <div class="container">
             <div style="position: relative; font-size: 17px; color: #57595c">Active profile: <span id="activeProfile">Main profile</span><input type="text" id="profileEditName" style="display: none; width: 110px; margin-right: 4px; height: 18px; font-size: 16px;" value="Main profile" /><button id="nameEditBtn"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#bdbdc3" version="1.1" id="Capa_1" width="15px" height="15px" viewBox="0 0 528.899 528.899" xml:space="preserve"><g><path d="M328.883,89.125l107.59,107.589l-272.34,272.34L56.604,361.465L328.883,89.125z M518.113,63.177l-47.981-47.981   c-18.543-18.543-48.653-18.543-67.259,0l-45.961,45.961l107.59,107.59l53.611-53.611   C532.495,100.753,532.495,77.559,518.113,63.177z M0.3,512.69c-1.958,8.812,5.998,16.708,14.811,14.565l119.891-29.069   L27.473,390.597L0.3,512.69z"/></g></svg></button></div>
@@ -346,12 +350,12 @@
          </div>
       </div>
    </div>
-   <div id="errorScreen" style="height: 120px" class="hidden">
+   <div id="errorScreen" class="hidden">
       <div class="image"></div>
       <div class="error">Connection problem</div>
    </div>
-   <div><div class="loader" style="display: none"></div></div>
-   <div id="logout" class="hidden"><a class="link" id="logoutLink">Logout</a></div>
+   <div id="loaderWrap"><div class="loader" style="display: none"></div></div>
+   <div id="logout" class="hidden"><a class="link solid" id="logoutLink">Logout</a></div>
 </div>
 </body>
 </html>

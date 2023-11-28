@@ -131,8 +131,10 @@ window.addEventListener("DOMContentLoaded", function() {
          el.innerHTML = '<div class="title">' + profile.name + '</div><div class="created_at">Created at ' + time + '</div>'
          list.appendChild(el)
       })
-      initProfilesList()
-      performChecks(profiles)
+      setTimeout(function() {
+         initProfilesList()
+         performChecks(profiles)
+      }, 0)
    }
    
    function initProfilesList() {
