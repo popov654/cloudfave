@@ -589,7 +589,7 @@ async function compareWithSnapshot() {
                         var pathStr = path.join('>')
                         if (!map[pathStr]) map[pathStr] = [[], []]
                         var new_path = []
-                        getFullPath(result[0].parentId).then(function(new_path) {
+                        getFullPath(result[0].parentId, snapshot).then(function(new_path) {
                            var pos = log.length
                            while (pos > 0 && log[pos-1].action == 'modify' && 
                               JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
@@ -792,7 +792,7 @@ function getDefaultNameByIndex(index) {
    return null
 }
 
-function getFullPath(parentId) {
+function getFullPath(parentId, tree) {
    if (isRootFolder(parentId)) return Promise.resolve([])
    parentId = parentId + ''
    if (pathCache[parentId]) return Promise.resolve(pathCache[parentId])
@@ -800,17 +800,15 @@ function getFullPath(parentId) {
       browser.bookmarks.get(parentId, function(result) {
          if (!result) return
          if (result[0].parentId && isRootFolder(result[0].parentId)) {
-            browser.bookmarks.getTree(function(tree){
-               var name = getDefaultName(tree, result[0].id)
-               if (name) {
-                  pathCache[parentId] = [name]
-                  resolve([name])
-               }
-               else {
-                  pathCache[parentId] = [result[0].title]
-                  resolve([result[0].title])
-               }
-            })
+            var name = getDefaultName(tree, result[0].id)
+            if (name) {
+               pathCache[parentId] = [name]
+               resolve([name])
+            }
+            else {
+               pathCache[parentId] = [result[0].title]
+               resolve([result[0].title])
+            }
          } else {
             resolve(getFullPath(result[0].parentId).then(res => { pathCache[parentId] = res.concat(result[0].title); return pathCache[parentId] }))
          }
