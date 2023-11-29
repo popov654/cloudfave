@@ -726,11 +726,11 @@ function checkForNewItems() {
 
 function walkTree(list, callback, onfinish) {
    for (var i = 0; i < list.length; i++) {
-      if (list[i].parentId && list[i].parentId != '0') callback(list[i])
+      if (callback && list[i].parentId && list[i].parentId != '0') callback(list[i])
       if (list[i].children) {
          walkTree(list[i].children, callback, onfinish)
       }
-      if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
+      if (onfinish && i == list.length-1 && isRootFolder(list[i].parentId)) {
          onfinish()
       }
    }
