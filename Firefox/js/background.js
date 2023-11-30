@@ -117,6 +117,9 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    else if (request.operation == 'authorize') {
       authorize(request.data.username, request.data.password, false, sendResponse)
    }
+   else if (request.operation == 'register') {
+      register(request.data.username, request.data.password, sendResponse)
+   }
    else if (request.operation == 'oauthLogin') {
       accessToken = s.accessToken = request.access_token
       browser.storage.local.set({ access_token: accessToken })
@@ -216,6 +219,25 @@ function logout(callback) {
    xhr.send(null)
 }
 
+function register(username, password, callback) {
+   if (!username || !username.length || !password || !password.length) {
+      return
+   }
+   var xhr = new XMLHttpRequest()
+   xhr.open('POST', origin + '/register', true)
+   xhr.setRequestHeader('Content-Type', 'application/json')
+   xhr.onload = function() {
+      if (this.status == 200) {
+         accessToken = JSON.parse(this.responseText).token
+         browser.storage.local.set({ access_token: accessToken })
+         s.accessToken = accessToken
+      }
+      if (callback) callback(this.status == 200)
+   }
+   xhr.onerror = function() {
+      if (callback) callback(this.responseText ? JSON.parse(this.responseText) : null)
+   }
+}
 function authorize(username, password, secure, callback) {
    if (!username || !username.length || !password || !password.length) {
       return

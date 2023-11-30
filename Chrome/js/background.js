@@ -105,6 +105,9 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    else if (request.operation == 'authorize') {
       authorize(request.data.username, request.data.password, false, sendResponse)
    }
+   else if (request.operation == 'register') {
+      register(request.data.username, request.data.password, sendResponse)
+   }
    else if (request.operation == 'oauthLogin') {
       accessToken = s.accessToken = request.access_token
       browser.storage.local.set({ access_token: accessToken })
@@ -194,6 +197,26 @@ function logout(callback) {
    xhr.send(null)
 }
 
+function register(username, password, callback) {
+   if (!username || !username.length || !password || !password.length) {
+      return
+   }
+   var xhr = new XMLHttpRequest()
+   xhr.open('POST', origin + '/register', true)
+   xhr.setRequestHeader('Content-Type', 'application/json')
+   xhr.onload = function() {
+      if (this.status == 200) {
+         accessToken = JSON.parse(this.responseText).token
+         browser.storage.local.set({ access_token: accessToken })
+         s.accessToken = accessToken
+      }
+      if (callback) callback(JSON.parse(this.responseText))
+   }
+   xhr.onerror = function() {
+      if (callback) callback(this.responseText ? JSON.parse(this.responseText) : null)
+   }
+   xhr.send(JSON.stringify({ username, password }))
+}
 function authorize(username, password, secure, callback) {
    if (!username || !username.length || !password || !password.length) {
       return
@@ -645,22 +668,6 @@ function walkTree(list, callback, onfinish) {
       }
       if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
          onfinish()
-      }
-   }
-}
-
-function walkTreeAsync(list, callback, onfinish, promises) {
-   if (!promises) promises = []
-   for (var i = 0; i < list.length; i++) {
-      if (list[i].parentId && list[i].parentId != '0') {
-         var p = callback(list[i])
-         if (p instanceof Promise) promises.push(p)
-      }
-      if (list[i].children) {
-         walkTreeAsync(list[i].children, callback, onfinish, promises)
-      }
-      if (i == list.length-1 && isRootFolder(list[i].parentId) && onfinish) {
-         Promise.all(promises).then(onfinish)
       }
    }
 }

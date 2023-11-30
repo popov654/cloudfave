@@ -29,12 +29,15 @@ window.addEventListener("DOMContentLoaded", function() {
    
    var loginForm = document.getElementById('loginForm')
    loginForm.getElementsByTagName('button')[0].classList.add('disabled')
+   document.getElementById('registerLink').classList.add('disabled')
    loginForm.getElementsByTagName('input')[0].oninput = 
    loginForm.getElementsByTagName('input')[1].oninput = function() {
       var username = loginForm.getElementsByTagName('input')[0].value
       var password = loginForm.getElementsByTagName('input')[1].value
       var btn = loginForm.getElementsByTagName('button')[0]
+      var link = document.getElementById('registerLink')
       btn.classList.toggle('disabled', !username.length || !password.length)
+      link.classList.toggle('disabled', !username.length || !password.length)
    }
    loginForm.onsubmit = function(event) {
       var username = loginForm.getElementsByTagName('input')[0].value
@@ -72,6 +75,15 @@ window.addEventListener("DOMContentLoaded", function() {
       })
       
       return false
+   }
+   
+   function showError(msg) {
+      document.getElementById('loginError').textContent = msg
+      document.getElementById('loginError').classList.add('visible')
+   }
+   
+   function hideError() {
+      document.getElementById('loginError').classList.remove('visible')
    }
    
    var profilesList = document.getElementById('profilesList')
@@ -412,6 +424,35 @@ window.addEventListener("DOMContentLoaded", function() {
             document.getElementById('mainScreen').classList.add('hidden')
             document.getElementById('errorScreen').classList.add('hidden')
             document.getElementById('logout').classList.add('hidden')
+         }
+      })
+   }
+   
+   document.getElementById('registerLink').onclick = function() {
+      if (this.classList.contains('disabled')) return
+      if (!document.getElementById('username').value.trim().length || !document.getElementById('password').value.trim().length) {
+         return
+      }
+      
+      hideError()
+      getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
+      
+      var username = document.getElementById('username').value
+      var password = document.getElementById('password').value
+      
+      browser.runtime.sendMessage({ operation: 'register', data: { username, password } }, function(result) {
+         getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
+         if (result === null) {
+            document.getElementById('loginScreen').classList.add('hidden')
+            setTimeout(function() {
+               document.getElementById('errorScreen').classList.remove('hidden')
+            }, 200)
+         } else if (result && result.error) {
+            document.getElementById('registerLink').classList.remove('disabled')
+            showError(result.error)
+         } else if (result) {
+            hideError()
+            document.getElementById('loginScreen').classList.add('emailSent')
          }
       })
    }

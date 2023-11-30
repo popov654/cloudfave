@@ -25,6 +25,23 @@
            border: 1px solid #ccc;
            border-radius: 4px;
         }
+        .link {
+           display: inline-block;
+           padding: 0px;
+           color: #2a9ce1;
+           text-decoration: none;
+           border-bottom: 1px dashed #3d94da;
+           cursor: pointer;
+        }
+        .link.solid {
+           border-bottom: none;
+           text-decoration: underline;
+        }
+        .link.disabled {
+           color: #a8a8a8;
+           border-bottom: 1px dashed #a3a3a3;
+           cursor: not-allowed;
+        }
         button {
            border-radius: 14px;
            height: 24px;
@@ -69,7 +86,7 @@
            display: none;
            opacity: 0;
            width: 210px;
-           margin: 14px auto 6px;
+           margin: 36px auto 6px;
            background: #e9a8a8;
            color: #855558;
            padding: 6px 16px;
@@ -93,6 +110,9 @@
         #password {
            margin-left: -3px;
         }
+        #loginScreen {
+           min-height: 380px;
+        }
         #loginForm .toggle {
            display: inline-block;
            vertical-align: middle;
@@ -113,6 +133,19 @@
         }
         #password {
            padding-right: 20px;
+        }
+        #loginScreen.emailSent {
+           display: flex;
+           align-items: center;
+           justify-content: center;
+        }
+        #loginScreen.emailSent > * {
+           display: none;
+        }
+        #loginScreen.emailSent::after {
+           display: inline-block;
+           max-width: 190px;
+           content: 'A confirmation message has been sent to your inbox. Please check your email';
         }
         @font-face {
            font-family: Roboto;
@@ -308,7 +341,8 @@
          <div class="line"><input type="text" name="username" id="username" placeholder="E-mail" /></div>
          <div class="line"><input type="password" name="password" id="password" placeholder="Password" /><div id="passToggle" class="toggle"></div></div>
          <div class="line"><center><button>Sign In</button></center></div>
-         <div style="margin: 60px 0px 10px; text-align: center"><button id="google_signin" style="margin: 0px auto; width: 176px; height: 30px; font-size: 13px; background-color: #232323; border-radius: 7px; display: flex; align-items: center; justify-content: center"><img src="img/google_icon.png" width="24" style="margin-right: 3px" /><span>Sign In with Google</span></a></div>
+         <div style="margin: 34px 0px 10px; text-align: center"><span class="link" id="registerLink">Create new account</span></div>
+         <div style="margin: 20px 0px 10px; text-align: center"><button id="google_signin" style="margin: 0px auto; width: 176px; height: 30px; font-size: 13px; background-color: #232323; border-radius: 7px; display: flex; align-items: center; justify-content: center"><img src="img/google_icon.png" width="24" style="margin-right: 3px" /><span>Sign In with Google</span></a></div>
          <div id="loginError">Invalid username or password</div>
       </form>
    </div>
