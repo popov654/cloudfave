@@ -377,6 +377,17 @@ window.addEventListener("DOMContentLoaded", function() {
       }
    }
    
+   function toggleFolders(value) {
+      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
+         el.checked = value
+         el.parentNode.classList.toggle('checked', value)
+      })
+   }
+   
+   var links = document.querySelectorAll('#selectFoldersScreen .extra_links > span')
+   links[0].onclick = () => toggleFolders(true)
+   links[1].onclick = () => toggleFolders(false)
+   
    document.getElementById('nextButton2').onclick = function() {
       var folders = []
       Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
@@ -450,10 +461,7 @@ window.addEventListener("DOMContentLoaded", function() {
          processItem(el, document.querySelector('#folderTree'))
       })
       
-      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
-         el.checked = true
-         el.parentNode.classList.add('checked')
-      })
+      toggleFolders(true)
       
       XScroll.init(document.querySelector('#folderTree'), true)
    }
