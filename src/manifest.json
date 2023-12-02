@@ -1,6 +1,8 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "CloudFave",
+  "description": "Syncs all you bookmarks across devices",
+  
   "version": "1.0.0",
 
   "icons": {
@@ -9,7 +11,7 @@
       "48": "icons/icon48.png"
   },
   "background": {
-    "scripts": ["js/background.js"]
+      "service_worker": "js/background.js"
   },
   "content_scripts": [
     {
@@ -23,12 +25,14 @@
   "permissions": [
     "storage",
     "tabs",
-    "bookmarks",
+    "bookmarks"
+  ],
+  "host_permissions": [
     "*://localhost/*",
     "*://cloudfave.ext.io/*"
   ],
 
-  "browser_action": {
+  "action": {
       "default_title": "CloudFave",
       "default_icon": "icons/icon64.png",
       "default_popup": "popup.html"

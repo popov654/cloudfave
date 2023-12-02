@@ -22,6 +22,19 @@ window.addEventListener("DOMContentLoaded", function() {
    var extension = window.browser && window.browser.runtime || chrome.extension
    var browser = window.browser || window.chrome
    
+   var isFirefox = browser.runtime.getURL('').match(/^moz-/)
+   
+   if (isFirefox) {
+      browser.storage.local._get = browser.storage.local.get
+      browser.storage.local.get = function(params, callback) {
+         browser.storage.local._get(params).then(callback, (err) => console.log(err))
+      }
+      browser.storage.local._set = browser.storage.local.set
+      browser.storage.local.set = function(obj, callback) {
+         browser.storage.local._set(obj).then(callback, (err) => console.log(err))
+      }
+   }
+   
    var otherBookmarks = 0;
    chrome.bookmarks.getTree(function(tree){
       otherBookmarks = tree[0].children[1];
@@ -49,7 +62,7 @@ window.addEventListener("DOMContentLoaded", function() {
       btn.classList.add('disabled')
       getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
       
-      extension.sendMessage({ operation: 'authorize', data: { username, password } }, function(result) {
+      browser.runtime.sendMessage({ operation: 'authorize', data: { username, password } }, function(result) {
          getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
          if (result === null) {
             document.getElementById('loginScreen').classList.add('hidden')
@@ -62,8 +75,8 @@ window.addEventListener("DOMContentLoaded", function() {
          } else {
             document.getElementById('loginError').classList.remove('visible')
             document.getElementById('loginScreen').classList.add('hidden')
-            extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-               if (result) loadProfiles()
+            browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
+               if (result) loadProfiles(result)
             })
             setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
@@ -116,9 +129,8 @@ window.addEventListener("DOMContentLoaded", function() {
       }
    })
    
-   function loadProfiles() {
-      console.log(localStorage.profiles)
-      var profiles = JSON.parse(localStorage.profiles)
+   function loadProfiles(profiles) {
+      console.log(profiles)
       var list = document.getElementById('profilesList').children[1]
       list.innerHTML = ''
       var offset = new Date().getTimezoneOffset() * 60 * 1000
@@ -320,7 +332,7 @@ window.addEventListener("DOMContentLoaded", function() {
          var title = profileNameField.value
          if (title.trim().match(/^\s*$/)) return
          document.getElementById('nextButton').classList.add('disabled')
-         extension.sendMessage({ operation: 'createProfile', name: title }, function(result) {
+         browser.runtime.sendMessage({ operation: 'createProfile', name: title }, function(result) {
             getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
             if (result) {
                setProfileId(result)
@@ -341,7 +353,7 @@ window.addEventListener("DOMContentLoaded", function() {
       if (operation == 'loadProfile') {
          data.merge = !!document.getElementById('mergeExistingData') && document.getElementById('mergeExistingData').checked
       }
-      extension.sendMessage({ operation, data }, function(result) {
+      browser.runtime.sendMessage({ operation, data }, function(result) {
          if (!result) return
          setProfileName(result.name)
          document.getElementById('startScreen').classList.add('hidden')
@@ -382,7 +394,7 @@ window.addEventListener("DOMContentLoaded", function() {
       } else {
          if (!input.value.match(/^\s*$/)) {
             document.getElementById('activeProfile').textContent = input.value
-            extension.sendMessage({ operation: 'renameProfile', data: { value: input.value } }, function(result) {
+            browser.runtime.sendMessage({ operation: 'renameProfile', data: { value: input.value } }, function(result) {
                // Do nothing
             })
          }
@@ -395,15 +407,15 @@ window.addEventListener("DOMContentLoaded", function() {
    }
    
    document.getElementById('syncButton').onclick = function() {
-      extension.sendMessage({ operation: 'sync' }, function(result) {
+      browser.runtime.sendMessage({ operation: 'sync' }, function(result) {
          if (result) {
-            setLastSyncTime()
+            setLastSyncTime(Date.now())
          }
       })
    }
    
    document.getElementById('logoutLink').onclick = function() {
-      extension.sendMessage({ operation: 'logout' }, function(result) {
+      browser.runtime.sendMessage({ operation: 'logout' }, function(result) {
          if (result) {
             document.getElementById('loginScreen').classList.remove('hidden')
             document.getElementById('startScreen').classList.add('hidden')
@@ -421,17 +433,23 @@ window.addEventListener("DOMContentLoaded", function() {
    }
    
    function setProfileName(value) {
-      document.getElementById('activeProfile').textContent = value || localStorage.profileName
+      document.getElementById('activeProfile').textContent = value
    }
    
-   function setLastSyncTime() {
-      if (parseInt(localStorage.lastSync) == 0) {
+   function updateLastSyncTime() {
+      browser.storage.local.get(['last_sync'], function(result) {
+         setLastSyncTime(result.last_sync)
+      })
+   }
+   
+   function setLastSyncTime(time) {
+      if (parseInt(time) == 0) {
          document.getElementById('lastSyncTime').previousSibling.textContent = ''
          document.getElementById('lastSyncTime').textContent = 'Not synced yet'
          return
       }
       document.getElementById('lastSyncTime').previousSibling.textContent = 'Last synced '
-      var delta = Math.floor((Date.now() - parseInt(localStorage.lastSync)) / 1000)
+      var delta = Math.floor((Date.now() - parseInt(time)) / 1000)
       if (delta <= 0) {
          document.getElementById('lastSyncTime').textContent = 'just now'
          return
@@ -454,67 +472,82 @@ window.addEventListener("DOMContentLoaded", function() {
       document.getElementById('lastSyncTime').textContent = delta + ' seconds ago'
    }
    
-   var screen = localStorage.accessToken == 'null' ? 0 : (localStorage.profileId == 'null' ? 1 : 2)
+   var screen = 0
    
-   var disconnected = localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 60000
+   var disconnected = false
+   var lastConnectionError = 0
    
-   if (disconnected) {
-      document.getElementById('loginScreen').classList.add('hidden')
-      document.getElementById('startScreen').classList.add('hidden')
-      document.getElementById('mainScreen').classList.add('hidden')
-      document.getElementById('errorScreen').classList.remove('hidden')
-      document.getElementById('logout').classList.add('hidden')
-   }
+   browser.storage.local.get(['access_token', 'profile_id', 'last_connection_error'], function(result) {
+      if (result.access_token) {
+         screen = result.profile_id ? 2 : 1
+      }
+      if (result.last_connection_error !== undefined && result.last_connection_error !== null) {
+         lastConnectionError = parseInt(result.last_connection_error)
+         disconnected = Date.now() - lastConnectionError < 60000
+      }
+      
+      initUI(screen, disconnected)
+   })
    
-   if (screen > 0) {
-      document.getElementById('loginScreen').classList.add('hidden')
-      if (screen == 1) {
-         var timer = null
-         extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-            if (result) {
-               document.getElementById('errorScreen').classList.add('hidden')
+   function initUI(screen, disconnected) {
+      if (disconnected) {
+         document.getElementById('loginScreen').classList.add('hidden')
+         document.getElementById('startScreen').classList.add('hidden')
+         document.getElementById('mainScreen').classList.add('hidden')
+         document.getElementById('errorScreen').classList.remove('hidden')
+         document.getElementById('logout').classList.add('hidden')
+      }
+      if (screen > 0) {
+         document.getElementById('loginScreen').classList.add('hidden')
+         if (screen == 1) {
+            var timer = null
+            browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
+               if (result) {
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('startScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+                  loadProfiles(result)
+               }
+               else if (result === null) {
+                  lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('startScreen').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                     document.getElementById('logout').classList.add('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
                document.getElementById('logout').classList.remove('hidden')
-               loadProfiles()
-            }
-            else if (result === null) {
-               localStorage.lastConnectionError = Date.now()
-               clearTimeout(timer)
-               document.getElementById('startScreen').classList.add('hidden')
-               setTimeout(function() {
-                  document.getElementById('errorScreen').classList.remove('hidden')
+            }, 200)
+         } else {
+            var timer = null
+            browser.runtime.sendMessage({ operation: 'getProfileName' }, function(result) {
+               if (result) {
+                  setProfileName(result.name)
+                  updateLastSyncTime()
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('mainScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+               } else if (!result && result !== undefined) {
+                  lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('mainScreen').classList.add('hidden')
                   document.getElementById('logout').classList.add('hidden')
-               }, 300)
-            }
-         })
-         if (!disconnected) timer = setTimeout(function() {
-            document.getElementById('startScreen').classList.remove('hidden')
-            document.getElementById('logout').classList.remove('hidden')
-         }, 200)
-      } else {
-         var timer = null
-         extension.sendMessage({ operation: 'getProfileName' }, function(result) {
-            if (result) {
-               setProfileName(result.name)
-               setLastSyncTime()
-               document.getElementById('errorScreen').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
                document.getElementById('mainScreen').classList.remove('hidden')
                document.getElementById('logout').classList.remove('hidden')
-            } else if (!result && result !== undefined) {
-               localStorage.lastConnectionError = Date.now()
-               clearTimeout(timer)
-               document.getElementById('mainScreen').classList.add('hidden')
-               document.getElementById('logout').classList.add('hidden')
-               setTimeout(function() {
-                  document.getElementById('errorScreen').classList.remove('hidden')
-               }, 300)
-            }
-         })
-         if (!disconnected) timer = setTimeout(function() {
-            document.getElementById('mainScreen').classList.remove('hidden')
-            document.getElementById('logout').classList.remove('hidden')
-         }, 200)
+            }, 200)
+         }
       }
    }
    
 })
+

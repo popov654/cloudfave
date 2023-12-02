@@ -2,16 +2,16 @@ var origin = 'https://cloudfave.ext.io/api'
 
 var mode = 0
 
-var s = localStorage;
-
-var userId = s.userId || null;
-var accessToken = s.accessToken || null;
-var profileId = s.profileId || null;
+var userId = null;
+var accessToken = null;
+var profileId = null;
 var folderId = -1;
 var profiles = []
 
-var lastSync = s.lastSync || 0;
-var syncInterval = s.syncInterval || 300000;
+var lastSync = 0;
+var syncInterval = 300000;
+
+var profileName = ''
    
 var browser = browser || chrome
 var extension = browser.extension || browser.runtime
@@ -19,7 +19,7 @@ var extension = browser.extension || browser.runtime
 if (!extension.onMessage) extension = browser.runtime
 
 var firefoxIds = { 0: 'root________', 1: 'toolbar_____', 2: 'unfiled_____', 3: 'mobile______' }
-var isFirefox = !chrome.app
+var isFirefox = browser.runtime.getURL('').match(/^moz-/)
 
 if (isFirefox) {
    browser.storage.local._get = browser.storage.local.get
@@ -32,15 +32,9 @@ if (isFirefox) {
    }
 }
 
-window.addEventListener("load", function(){
-   
-   s.profileName = ''
-   loadUserConfig(function() {
-      getProfiles()
-      getProfileName()
-   })
-
-}, false);
+loadUserConfig(function() {
+   getProfiles()
+})
 
 function loadUserConfig(callback) {
    browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], 
@@ -50,11 +44,6 @@ function loadUserConfig(callback) {
          folderId = result.folder_id || -1
          lastSync = result.last_sync || 0
          syncInterval = result.sync_interval || 300000
-         s.accessToken = accessToken
-         s.profileId = profileId
-         s.folderId = folderId
-         s.lastSync = lastSync
-         s.syncInterval = syncInterval
          
          if (callback) callback()
       }
@@ -62,7 +51,6 @@ function loadUserConfig(callback) {
 }
 
 async function getProfiles() {
-   s.profiles = '[]'
    if (!accessToken) return
    try {
       var res = await fetch(origin + '/getProfiles', {
@@ -73,7 +61,6 @@ async function getProfiles() {
       res = await res.json()
       if (res.data) {
          profiles = res.data
-         s.profiles = JSON.stringify(profiles)
          return profiles
       }
    } catch (e) {
@@ -98,95 +85,97 @@ async function getProfileName() {
 }
 
 extension.onMessage.addListener(function(request, sender, sendResponse) {
-   if (request.operation == 'getUIScreen') {
-      var result = accessToken == null ? 0 : (profileId == null ? 1 : 2)
-      sendResponse({ result })
-   }
-   else if (request.operation == 'getProfileName') {
-      getProfileName().then(() => sendResponse({ name: profileName }))
-   }
-   else if (request.operation == 'setProfileId') {
-      profileId = s.profileId = request.data.id
-      browser.storage.local.set({ profileId: request.data.id }, function() {
-         getProfileName().then(() => sendResponse({ name: profileName }))
-      })
-   }
-   else if (request.operation == 'update') {
-      updateUserConfig(request.data)
-   }
-   else if (request.operation == 'authorize') {
-      authorize(request.data.username, request.data.password, false).then(res => sendResponse(res))
-   }
-   else if (request.operation == 'oauthLogin') {
-      accessToken = s.accessToken = request.access_token
-      browser.storage.local.set({ access_token: accessToken })
-   }
-   else if (request.operation == 'createProfile') {
-      exportData(async function(result) {
-         var res = await createProfile(request.name, result)
-         if (!res || !res.profileId) {
-            sendResponse(0)
-         } else {
-            lastSync = s.lastSync = +res.timestamp || Date.now() + 1000
-            profileId = s.profileId = res.profileId
-            browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
-               sendResponse(res.profileId)
-            })
-         }
-      })
-   }
-   else if (request.operation == 'renameProfile') {
-      renameProfile(request.data.value).then(() => sendResponse(1))
-   }
-   else if (request.operation == 'loadProfile') {
-      var onFinish = function(result) {
-         if (result.timestamp) {
-            lastSync = s.lastSync = +result.timestamp || Date.now() + 1000
-            browser.storage.local.set({ last_sync: lastSync })
-         }
-         saveSnapshot()
+   loadUserConfig(function() {
+   
+      if (request.operation == 'getUIScreen') {
+         var result = accessToken == null ? 0 : (profileId == null ? 1 : 2)
+         sendResponse({ result })
       }
-      loadData(request.data.id).then(result => {
-         if (request.data.merge) {
-            exportData(function(res) {
-               mergeData(request.data.id, res)
-               importData(result.data, onFinish)
-            })
-         } else {
-            importData(result.data, onFinish)
+      else if (request.operation == 'getProfileName') {
+         getProfileName().then(() => sendResponse({ name: profileName }))
+      }
+      else if (request.operation == 'setProfileId') {
+         profileId = request.data.id
+         browser.storage.local.set({ profileId: request.data.id }, function() {
+            getProfileName().then(() => sendResponse({ name: profileName }))
+         })
+      }
+      else if (request.operation == 'update') {
+         updateUserConfig(request.data)
+      }
+      else if (request.operation == 'authorize') {
+         authorize(request.data.username, request.data.password, false).then(res => sendResponse(res))
+      }
+      else if (request.operation == 'oauthLogin') {
+         accessToken = request.access_token
+         browser.storage.local.set({ access_token: accessToken })
+      }
+      else if (request.operation == 'createProfile') {
+         exportData(async function(result) {
+            var res = await createProfile(request.name, result)
+            if (!res || !res.profileId) {
+               sendResponse(0)
+            } else {
+               lastSync = +res.timestamp || Date.now() + 1000
+               profileId = res.profileId
+               browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
+                  sendResponse(res.profileId)
+               })
+            }
+         })
+      }
+      else if (request.operation == 'renameProfile') {
+         renameProfile(request.data.value).then(() => sendResponse(1))
+      }
+      else if (request.operation == 'loadProfile') {
+         var onFinish = function(result) {
+            if (result.timestamp) {
+               lastSync = +result.timestamp || Date.now() + 1000
+               browser.storage.local.set({ last_sync: lastSync })
+            }
+            saveSnapshot()
          }
-         profileId = s.profileId = request.data.id
-         lastSync = s.lastSync = Date.now() + 1000
-         browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, function() {
-            getProfileName(function() {
-               sendResponse({ id: profileId, name: s.profileName })
+         loadData(request.data.id).then(result => {
+            if (request.data.merge) {
+               exportData(async function(res) {
+                  await mergeData(request.data.id, res)
+                  importData(result.data, onFinish)
+               })
+            } else {
+               importData(result.data, onFinish)
+            }
+            profileId = request.data.id
+            lastSync = Date.now() + 1000
+            browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, async function() {
+               getProfileName().then(() => sendResponse({ id: profileId, name: profileName }))
             })
          })
-      })
-   }
-   else if (request.operation == 'getProfiles') {
-      getProfiles().then(res => sendResponse(res))
-   }
-   else if (request.operation == 'saveSnapshot') {
-      saveSnapshot(function() {
-         browser.storage.local.get(['snapshot'], function(result) {
-            var snapshot = result.snapshot
-            sendResponse(snapshot)
+      }
+      else if (request.operation == 'getProfiles') {
+         getProfiles().then(res => sendResponse(res))
+      }
+      else if (request.operation == 'saveSnapshot') {
+         saveSnapshot(function() {
+            browser.storage.local.get(['snapshot'], function(result) {
+               var snapshot = result.snapshot
+               sendResponse(snapshot)
+            })
          })
-      })
-   }
-   else if (request.operation == 'sync') {
-      sync()
-         .then(() => {
-            sendResponse(1)
-         })
-         .catch(() => {
-            sendResponse(0)
-         })
-   }
-   else if (request.operation == 'logout') {
-      logout().then(() => sendResponse(1))
-   }
+      }
+      else if (request.operation == 'sync') {
+         sync()
+            .then(() => {
+               sendResponse(1)
+            })
+            .catch(() => {
+               sendResponse(0)
+            })
+      }
+      else if (request.operation == 'logout') {
+         logout().then(() => sendResponse(1))
+      }
+      
+   })
    return true
 })
 
@@ -196,8 +185,8 @@ async function logout() {
 			'Authorization': 'Bearer: ' + accessToken
 		}
    })
-   accessToken = s.accessToken = null
-   profileId = s.profileId = null
+   accessToken = null
+   profileId = null
    browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
 }
 
@@ -224,12 +213,11 @@ async function doAuth(username, password, secure, callback) {
          var result = await res.json()
          accessToken = result.token
          browser.storage.local.set({ access_token: accessToken })
-         s.accessToken = accessToken
       }
       return res.status == 200
    } catch (e) {
       console.log(e)
-      return false
+      return null
    }
 }
 
@@ -243,7 +231,6 @@ async function loadProfilesList() {
    var result = await res.json()
    if (result.data) {
       profiles = result.data
-      s.profiles = JSON.stringify(profiles)
    }
    return profiles
 }
@@ -780,7 +767,7 @@ async function applyRemoteUpdates() {
          await executeCommand(response.data[i])
       }
       if (response.timestamp) {
-         lastSync = s.lastSync = +response.timestamp || Date.now() + 1000
+         lastSync = +response.timestamp || Date.now() + 1000
       }
       return Promise.resolve()
    } catch(e) {
