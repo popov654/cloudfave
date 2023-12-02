@@ -5,7 +5,7 @@ window.addEventListener("DOMContentLoaded", function() {
    
    var isFirefox = browser.runtime.getURL('').match(/^moz-/)
    
-   if (isFirefox) {
+   if (isFirefox && !browser.storage.local._get) {
       browser.storage.local._get = browser.storage.local.get
       browser.storage.local.get = function(params, callback) {
          browser.storage.local._get(params).then(callback, (err) => console.log(err))
