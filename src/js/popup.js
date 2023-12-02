@@ -361,9 +361,103 @@ window.addEventListener("DOMContentLoaded", function() {
          setProfileName(result.name)
          document.getElementById('startScreen').classList.add('hidden')
          setTimeout(function() {
-            document.getElementById('mainScreen').classList.remove('hidden')
+            document.getElementById('selectFoldersScreen').classList.remove('hidden')
+            initUI(2)
          }, 300)
       })
+   }
+   
+   document.getElementById('folderTree').onclick = function(event) {
+      var el = event.target
+      while (el != null) {
+         if (el.classList && el.classList.contains('title') && event.target.tagName != 'INPUT') {
+            el.parentNode.getElementsByTagName('input')[0].click()
+            el.parentNode.classList.toggle('checked')
+            break
+         }
+         el = el.parentNode
+      }
+   }
+   
+   document.getElementById('nextButton2').onclick = function() {
+      var folders = []
+      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
+         if (!el.checked) {
+            folders.push(el.parentNode.parentNode.path)
+         }
+      })
+      browser.runtime.sendMessage({ operation: 'setIgnoredFolders', data: folders }, function() {
+         document.getElementById('selectFoldersScreen').classList.add('hidden')
+         browser.runtime.sendMessage({ operation: 'getProfileName' }, function(result) {
+            if (result && result.name) {
+               setProfileName(result.name)
+               updateLastSyncTime()
+               document.getElementById('errorScreen').classList.add('hidden')
+               document.getElementById('mainScreen').classList.remove('hidden')
+               document.getElementById('logout').classList.remove('hidden')
+            } else if (result && result.error) {
+               localStorage.lastConnectionError = Date.now()
+               document.getElementById('selectFoldersScreen').classList.add('hidden')
+               document.getElementById('logout').classList.add('hidden')
+               setTimeout(function() {
+                  document.getElementById('errorScreen').classList.remove('hidden')
+               }, 300)
+            }
+         })
+      })
+   }
+   
+   function walkTree(list, callback, data) {
+      for (var i = 0; i < list.length; i++) {
+         if (list[i].parentId && list[i].parentId != '0') {
+            callback(list[i], data)
+         }
+         if (list[i].children) {
+            walkTree(list[i].children, callback, data)
+         }
+      }
+   }
+   
+   function loadFolderTree(data) {
+      
+      function processItem(item, container) {
+         var el = document.createElement('div')
+         el.classList.add('folder')
+         
+         var title = document.createElement('div')
+         title.classList.add('title')
+         var span = document.createElement('span')
+         span.textContent = item.title
+         var cbx = document.createElement('input')
+         cbx.type = 'checkbox'
+         title.appendChild(cbx)
+         title.appendChild(span)
+         
+         el.appendChild(title)
+         
+         if (item.children) {
+            var c = document.createElement('div')
+            c.classList.add('items')
+            item.children.forEach(function(child) {
+               processItem(child, c)
+            })
+            el.appendChild(c)
+         }
+         el.path = item.path
+         
+         container.appendChild(el)
+      }
+      
+      data.forEach(function(el) {
+         processItem(el, document.querySelector('#folderTree'))
+      })
+      
+      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
+         el.checked = true
+         el.parentNode.classList.add('checked')
+      })
+      
+      XScroll.init(document.querySelector('#folderTree'), true)
    }
    
    document.getElementById('profileEditName').onkeydown = function(e) {
@@ -509,9 +603,9 @@ window.addEventListener("DOMContentLoaded", function() {
    var disconnected = false
    var lastConnectionError = 0
    
-   browser.storage.local.get(['access_token', 'profile_id', 'last_connection_error'], function(result) {
+   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_connection_error'], function(result) {
       if (result.access_token) {
-         screen = result.profile_id ? 2 : 1
+         screen = result.profile_id && result.ignored_folders ? 3 : result.profile_id ? 2 : 1
       }
       if (result.last_connection_error !== undefined && result.last_connection_error !== null) {
          lastConnectionError = parseInt(result.last_connection_error)
@@ -521,10 +615,39 @@ window.addEventListener("DOMContentLoaded", function() {
       initUI(screen, disconnected)
    })
    
+   function addLoader(container) {
+      var loader = document.createElement('div')
+      loader.classList.add('loader')
+      
+      container.style.position = 'relative'
+      loader.style.position = 'absolute'
+      loader.style.left = '50%'
+      loader.style.top = '50%'
+      
+      setTimeout(function() {
+         var st = getComputedStyle(loader, '')
+         var w = -parseFloat(st.width) / 2
+         var h = -parseFloat(st.height) / 2
+         loader.style.marginLeft = w + 'px'
+         loader.style.marginTop = h + 'px'
+      }, 0)
+      
+      container.appendChild(loader)
+   }
+   
+   function removeLoader(container) {
+      for (var i = 0; i < container.children.length; i++) {
+         if (container.children[i].classList.contains('loader')) {
+            container.removeChild(container.children[i])
+         }
+      }
+   }
+   
    function initUI(screen, disconnected) {
       if (disconnected) {
          document.getElementById('loginScreen').classList.add('hidden')
          document.getElementById('startScreen').classList.add('hidden')
+         document.getElementById('selectFoldersScreen').classList.add('hidden')
          document.getElementById('mainScreen').classList.add('hidden')
          document.getElementById('errorScreen').classList.remove('hidden')
          document.getElementById('logout').classList.add('hidden')
@@ -533,20 +656,19 @@ window.addEventListener("DOMContentLoaded", function() {
          document.getElementById('loginScreen').classList.add('hidden')
          if (screen == 1) {
             var timer = null
-            document.getElementById('logout').classList.add('hidden')
             browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
                if (result && result.data) {
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('startScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
                   loadProfiles(result.data)
-               }
-               else if (result && result.error) {
+               } else if (result && result.error) {
                   browser.storage.local.set({ access_token: null, profile_id: null })
-                  document.getElementById('loginScreen').classList.remove('hidden')
                   clearTimeout(timer)
-               }
-               else if (result === null) {
-                  lastConnectionError = Date.now()
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('loginScreen').classList.remove('hidden')
+               } else if (result == null) {
+                  localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('startScreen').classList.add('hidden')
                   setTimeout(function() {
@@ -557,6 +679,37 @@ window.addEventListener("DOMContentLoaded", function() {
             })
             if (!disconnected) timer = setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
+               document.getElementById('logout').classList.remove('hidden')
+            }, 200)
+         } else if (screen == 2) {
+            var timer = null
+            addLoader(document.getElementById('folderTree'))
+            browser.runtime.sendMessage({ operation: 'getFolderTree' }, function(result) {
+               if (result) {
+                  removeLoader(document.getElementById('folderTree'))
+                  loadFolderTree(result)
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('selectFoldersScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+               } else if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+                  clearTimeout(timer)
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('loginScreen').classList.remove('hidden')
+               } else if (result == null) {
+                  removeLoader(document.getElementById('folderTree'))
+                  localStorage.lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('selectFoldersScreen').classList.add('hidden')
+                  document.getElementById('mainScreen').classList.add('hidden')
+                  document.getElementById('logout').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
+               document.getElementById('selectFoldersScreen').classList.remove('hidden')
             }, 200)
          } else {
             var timer = null
@@ -568,11 +721,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   document.getElementById('mainScreen').classList.remove('hidden')
                   document.getElementById('logout').classList.remove('hidden')
                } else if (result && result.error) {
-                  browser.storage.local.set({ access_token: null, profile_id: null })
-                  document.getElementById('loginScreen').classList.remove('hidden')
-                  clearTimeout(timer)
-               } else if (result === null) {
-                  lastConnectionError = Date.now()
+                  localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('mainScreen').classList.add('hidden')
                   document.getElementById('logout').classList.add('hidden')

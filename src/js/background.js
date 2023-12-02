@@ -7,6 +7,7 @@ var accessToken = null;
 var profileId = null;
 var folderId = -1;
 var profiles = []
+var ignoredFolders = null
 
 var lastSync = 0;
 var syncInterval = 300000;
@@ -56,11 +57,11 @@ loadUserConfig(function() {
 })
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'folder_id', 'last_sync', 'sync_interval'], 
+   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_sync', 'sync_interval'], 
       function(result) {
          accessToken = result.access_token || null
          profileId = result.profile_id || null
-         folderId = result.folder_id || -1
+         ignoredFolders = result.ignored_folders || null
          lastSync = result.last_sync || 0
          syncInterval = result.sync_interval || 300000
          
@@ -104,7 +105,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    loadUserConfig(function() {
    
       if (request.operation == 'getUIScreen') {
-         var result = accessToken == null ? 0 : (profileId == null ? 1 : 2)
+         var result = accessToken == null ? 0 : (profileId == null ? 1 : (!ignoredFolders ? 2 : 3))
          sendResponse({ result })
       }
       else if (request.operation == 'getProfileName') {
@@ -173,6 +174,24 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       else if (request.operation == 'getProfiles') {
          getProfiles().then(res => sendResponse(res))
       }
+      else if (request.operation == 'getFolderTree') {
+         loadDirectoryTree(profileId).then(result => {
+            if (!result) {
+               sendResponse(null)
+            } else {
+               if (result.error) {
+                  sendResponse(result)
+               } else {
+                  sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
+               }
+            }
+         })
+      }
+      else if (request.operation == 'setIgnoredFolders') {
+         browser.storage.local.set({ ignored_folders: request.data }, function() {
+            sendResponse(1)
+         })
+      }
       else if (request.operation == 'saveSnapshot') {
          saveSnapshot(function() {
             browser.storage.local.get(['snapshot'], function(result) {
@@ -206,7 +225,8 @@ async function logout() {
    })
    accessToken = null
    profileId = null
-   browser.storage.local.set({ access_token: accessToken, profile_id: profileId })
+   ignoredFolders = null
+   browser.storage.local.set({ access_token: accessToken, profile_id: profileId, ignored_folders: ignoredFolders })
 }
 
 async function register(username, password) {
@@ -295,6 +315,19 @@ async function mergeData(profile_id, data) {
       body: JSON.stringify(data)
    })
    return await res.json()
+}
+   
+async function loadDirectoryTree(profile_id) {
+   try {
+      var res = await fetch(origin + '/' + profile_id + '/directories', {
+         headers: {
+            'Authorization': 'Bearer: ' + accessToken
+         }
+      })
+      return await res.json()
+   } catch (e) {
+      return null
+   }
 }
 
 async function createProfile(name, data) {
@@ -766,7 +799,7 @@ var changesToSend = []
 var syncing = false
 
 async function sync() {
-   if (!accessToken || !profileId || syncing) return Promise.reject()
+   if (!accessToken || !profileId || !ignoredFolders || syncing) return Promise.reject()
    var _last = lastSync
    syncing = true
    pathCache = {}
