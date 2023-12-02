@@ -486,10 +486,15 @@ function isRootFolder(id) {
    return id == 0 || isFirefox && firefoxIds[0] == id
 }
 
+function normalizeFolders(root) {
+   for (var i = 0; i < root.children.length; i++) {
+      root.children[i].title = getDefaultNameById(root.children[i].id)
+   }
+}
+
 function exportData(callback) {
    browser.bookmarks.getTree(function(result) {
-      result[0].children[0].title = 'Bookmarks panel'
-      result[0].children[1].title = 'Other bookmarks'
+      normalizeFolders(result[0])
       var default_id = result[0].children[1].id
       walkTree(result, null, function(element) {
          if (element.parentId === undefined) {
