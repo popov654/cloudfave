@@ -66,12 +66,14 @@ function getProfiles(callback) {
          if (res.data) {
             profiles = res.data
             s.profiles = JSON.stringify(profiles)
-            if (callback) callback(profiles)
+            if (callback) callback({ data: profiles })
          }
-      } catch (ex) {}
+      } catch (ex) {
+         if (callback) callback({ error : ex.message })
+      }
    }
    xhr.onerror = function() {
-      if (callback) callback(null)
+      if (callback) callback({ error : xhr.statusText })
    }
    xhr.send(null)
 }

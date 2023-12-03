@@ -66,7 +66,13 @@ window.addEventListener("DOMContentLoaded", function() {
             document.getElementById('loginError').classList.remove('visible')
             document.getElementById('loginScreen').classList.add('hidden')
             extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-               if (result) loadProfiles()
+               if (result && result.data) {
+                  document.getElementById('startScreen').classList.remove('hidden')
+                  setTimeout(function() { loadProfiles(result.data) }, 20)
+               }
+               if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+               }
             })
             setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
