@@ -580,7 +580,7 @@ function compareWithSnapshot() {
                            var pathStr = path.join('>')
                            if (!map[pathStr]) map[pathStr] = [[], []]
                            var new_path = []
-                           getFullPath(result[0].parentId).then(function(new_path) {
+                           getFullPath(result[0].parentId, snapshot).then(function(new_path) {
                               var pos = log.length
                               while (pos > 0 && log[pos-1].action == 'modify' && 
                                  JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
@@ -689,27 +689,24 @@ function checkForNewItems() {
       
       browser.bookmarks.getTree(function(tree){
          browser.storage.local.get(['snapshot'], function(res) {
-            var snapshot = res.snapshot, c1 = 0, c2 = 0
+            var snapshot = res.snapshot
             walkTree(tree[0].children, function(element) {
-               setTimeout(() => {
-                  getFullPath(element.parentId).then(path => {
-                     if (containsPath(ignoredFolders, path)) {
-                        if (c1 == ++c2) resolve({ log, snapshot })
-                        return
+               getFullPath(element.parentId, tree).then(path => {
+                  if (containsPath(ignoredFolders, path)) {
+                     return
+                  }
+                  var elementDepth = path.length
+                  var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
+                  var found = searchInFolderById(element.id, elementDepth, root.children, 0)
+                  if (!found) {
+                     console.log(element.url ? 'New bookmark found: ' + element.url : 'New folder found: ' + element.title)
+                     if (log && log instanceof Array) {
+                        log.push({ action: 'add', url: element.url, path, details: { title: element.title, index: element.index }})
                      }
-                     var elementDepth = path.length
-                     var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
-                     var found = searchInFolderById(element.id, elementDepth, root.children, 0)
-                     if (!found) {
-                        console.log(element.url ? 'New bookmark found: ' + element.url : 'New folder found: ' + element.title)
-                        if (log && log instanceof Array) {
-                           log.push({ action: 'add', url: element.url, path, details: { title: element.title, index: element.index }})
-                        }
-                        Tree.insert(snapshot[0], element, path)
-                     }
-                     if (c1 == ++c2) resolve({ log, snapshot })
-                  })
-               }, 2*(++c1))
+                     Tree.insert(snapshot[0], element, path)
+                  }
+                  resolve({ log, snapshot })
+               })
             })
          })
       })
@@ -785,7 +782,7 @@ function getDefaultNameByIndex(index) {
    return null
 }
 
-function getFullPath(parentId) {
+function getFullPath(parentId, tree) {
    if (isRootFolder(parentId)) return Promise.resolve([])
    parentId = parentId + ''
    if (pathCache[parentId]) return Promise.resolve(pathCache[parentId])
@@ -793,19 +790,17 @@ function getFullPath(parentId) {
       browser.bookmarks.get(parentId, function(result) {
          if (!result) return
          if (result[0].parentId && isRootFolder(result[0].parentId)) {
-            browser.bookmarks.getTree(function(tree){
-               var name = getDefaultName(tree, result[0].id)
-               if (name) {
-                  pathCache[parentId] = [name]
-                  resolve([name])
-               }
-               else {
-                  pathCache[parentId] = [result[0].title]
-                  resolve([result[0].title])
-               }
-            })
+            var name = getDefaultName(tree, result[0].id)
+            if (name) {
+               pathCache[parentId] = [name]
+               resolve([name])
+            }
+            else {
+               pathCache[parentId] = [result[0].title]
+               resolve([result[0].title])
+            }
          } else {
-            resolve(getFullPath(result[0].parentId).then(res => { pathCache[parentId] = res.concat(result[0].title); return pathCache[parentId] }))
+            resolve(getFullPath(result[0].parentId, tree).then(res => { pathCache[parentId] = res.concat(result[0].title); return pathCache[parentId] }))
          }
       })
    })
