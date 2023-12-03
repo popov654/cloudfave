@@ -491,7 +491,7 @@ function exportData(callback) {
       result[0].children[0].title = 'Bookmarks panel'
       result[0].children[1].title = 'Other bookmarks'
       var default_id = result[0].children[1].id
-      walkTree(result, function(element) {
+      walkTree(result, null, function(element) {
          if (element.parentId === undefined) {
             element.parentId = default_id
          }
@@ -690,7 +690,7 @@ function checkForNewItems() {
       browser.bookmarks.getTree(function(tree){
          browser.storage.local.get(['snapshot'], function(res) {
             var snapshot = res.snapshot
-            walkTree(tree[0].children, function(element) {
+            walkTree(tree[0].children, tree[0], function(element) {
                getFullPath(element.parentId, tree).then(path => {
                   if (containsPath(ignoredFolders, path)) {
                      return
@@ -714,11 +714,11 @@ function checkForNewItems() {
    })
 }
 
-function walkTree(list, callback, onfinish) {
+function walkTree(list, parent, callback, onfinish) {
    for (var i = 0; i < list.length; i++) {
       if (callback && list[i].parentId && list[i].parentId != '0') callback(list[i])
       if (list[i].children) {
-         walkTree(list[i].children, callback, onfinish)
+         walkTree(list[i].children, parent, callback, onfinish)
       }
       if (onfinish && i == list.length-1 && isRootFolder(list[i].parentId)) {
          onfinish()
