@@ -605,9 +605,39 @@ window.addEventListener("DOMContentLoaded", function() {
    if (disconnected) {
       document.getElementById('loginScreen').classList.add('hidden')
       document.getElementById('startScreen').classList.add('hidden')
+      document.getElementById('selectFoldersScreen').classList.add('hidden')
       document.getElementById('mainScreen').classList.add('hidden')
       document.getElementById('errorScreen').classList.remove('hidden')
       document.getElementById('logout').classList.add('hidden')
+   }
+   
+   function addLoader(container) {
+      var loader = document.createElement('div')
+      loader.classList.add('loader')
+      
+      container.style.position = 'relative'
+      loader.style.position = 'absolute'
+      loader.style.left = '50%'
+      loader.style.top = '50%'
+      
+      setTimeout(function() {
+         var st = getComputedStyle(loader, '')
+         var w = -parseFloat(st.width) / 2
+         var h = -parseFloat(st.height) / 2
+         loader.style.marginLeft = w + 'px'
+         loader.style.marginTop = h + 'px'
+      }, 0)
+      
+      container.appendChild(loader)
+   }
+   
+   function removeLoader(container) {
+      for (var i = 0; i < container.children.length; i++) {
+         if (container.children[i].classList.contains('loader')) {
+            container.removeChild(container.children[i])
+         }
+      }
+      container.style.position = ''
    }
    
    if (screen > 0) {
@@ -637,12 +667,15 @@ window.addEventListener("DOMContentLoaded", function() {
          }, 200)
       } else if (screen == 2) {
          var timer = null
+         addLoader(document.getElementById('folderTree'))
          extension.sendMessage({ operation: 'getFolderTree' }, function(result) {
             if (result) {
+               removeLoader(document.getElementById('folderTree'))
                loadFolderTree(result)
                document.getElementById('errorScreen').classList.add('hidden')
                document.getElementById('selectFoldersScreen').classList.remove('hidden')
             } else if (!result && result !== undefined) {
+               removeLoader(document.getElementById('folderTree'))
                localStorage.lastConnectionError = Date.now()
                clearTimeout(timer)
                document.getElementById('selectFoldersScreen').classList.add('hidden')
@@ -655,7 +688,6 @@ window.addEventListener("DOMContentLoaded", function() {
          })
          if (!disconnected) timer = setTimeout(function() {
             document.getElementById('selectFoldersScreen').classList.remove('hidden')
-            document.getElementById('logout').classList.remove('hidden')
          }, 200)
       } else {
          var timer = null

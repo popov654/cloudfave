@@ -166,7 +166,11 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
    }
    else if (request.operation == 'getFolderTree') {
       loadDirectoryTree(profileId, function(result) {
-         sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
+         if (!result) {
+            sendResponse(null)
+         } else {
+            sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
+         }
       })
    }
    else if (request.operation == 'setIgnoredFolders') {
@@ -300,6 +304,9 @@ function loadDirectoryTree(profile_id, callback) {
       console.log(result)
       callback(result)
    }
+   xhr.onerror = function() {
+      if (callback) callback(0)
+   }
    xhr.send(null)
 }
 
@@ -383,6 +390,8 @@ function importData(data, callback) {
       function processItem(data, index, parent, itemComplete, allComplete) {
          var parent_id = parent && folderId(parent.id) || folder.id
          
+         data[index].path = parent && parent.path ? parent.path.concat(data[index].title) : []
+         
          if (parent && !parent.ex_list) {
             parent.ex_list = []
             parent.total_list = []
@@ -418,8 +427,8 @@ function importData(data, callback) {
          var skip = data[index].id == 0 ||
                     index < 2 && parent_id == 0 ||
                     isFirefox && index < 4 && parent_id == firefoxIds[0] ||
-                    !data[index].title && !data[index].url ||
-                    exists
+                    !data[index].title && !data[index].url || exists
+         
          if (!skip) {
             browser.bookmarks.create(
                {
@@ -541,7 +550,7 @@ function compareWithSnapshot() {
                   }
                }
                
-               if (list.length == 0) {
+               if (list.length == 0 || containsPath(ignoredFolders, path)) {
                   onfinish()
                   return
                }
@@ -604,9 +613,9 @@ function compareWithSnapshot() {
                            }
                            if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
                         } else {
-                           if (!list[i].children) (function (list, i) { onfinish() }) (list, i)
+                           if (!list[i].children || containsPath(ignoredFolders, path.concat(list[i].title))) (function (list, i) { onfinish() }) (list, i)
                         }
-                        if (list[i].children) {
+                        if (list[i].children && !containsPath(ignoredFolders, path.concat(list[i].title))) {
                            var title = list[i].title
                            if (isRootFolder(list[i].parentId)) {
                               title = getDefaultNameByIndex(i)
@@ -654,6 +663,23 @@ function setBeforeAndAfter(list, pos, details) {
    details.folder_size = list.length
 }
 
+function containsPath(list, path) {
+   for (var i = 0; i < list.length; i++) {
+      if (!list[i].length || list[i].length != path.length) {
+         continue
+      }
+      var flag = true
+      for (var j = 0; j < list[i].length; j++) {
+         if (list[i][j] != path[j]) {
+            flag = false
+            break
+         }
+      }
+      if (flag) return true
+   }
+   return false
+}
+
 function checkForNewItems() {
    
    return new Promise(function(resolve) {
@@ -667,6 +693,10 @@ function checkForNewItems() {
             walkTree(tree[0].children, function(element) {
                setTimeout(() => {
                   getFullPath(element.parentId).then(path => {
+                     if (containsPath(ignoredFolders, path)) {
+                        if (c1 == ++c2) resolve({ log, snapshot })
+                        return
+                     }
                      var elementDepth = path.length
                      var root = folderId > -1 ? snapshot[0].children[folderId] : snapshot[0]
                      var found = searchInFolderById(element.id, elementDepth, root.children, 0)
@@ -850,6 +880,13 @@ function executeCommand(log, index, onfinish) {
          if (onfinish) onfinish()
       }
    }
+   
+   if (containsPath(ignoredFolders, log[index].path)) {
+      index++
+      next()
+      return
+   }
+   
    switch (log[index].action) {
       case 'add':
          executeAddBookmark(log, index, next)
