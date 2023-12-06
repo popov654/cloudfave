@@ -360,9 +360,102 @@ window.addEventListener("DOMContentLoaded", function() {
          setProfileName(result.name)
          document.getElementById('startScreen').classList.add('hidden')
          setTimeout(function() {
-            document.getElementById('mainScreen').classList.remove('hidden')
+            document.getElementById('selectFoldersScreen').classList.remove('hidden')
          }, 300)
       })
+   }
+   
+   document.getElementById('folderTree').onclick = function(event) {
+      var el = event.target
+      while (el != null) {
+         if (el.classList && el.classList.contains('title') && event.target.tagName != 'INPUT') {
+            el.parentNode.getElementsByTagName('input')[0].click()
+            el.parentNode.classList.toggle('checked')
+            break
+         }
+         el = el.parentNode
+      }
+   }
+   
+   document.getElementById('nextButton2').onclick = function() {
+      var folders = []
+      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
+         if (!el.checked) {
+            folders.push(el.parentNode.parentNode.path)
+         }
+      })
+      extension.sendMessage({ operation: 'setIgnoredFolders', data: folders }, function() {
+         document.getElementById('selectFoldersScreen').classList.add('hidden')
+         extension.sendMessage({ operation: 'getProfileName' }, function(result) {
+            if (result) {
+               setProfileName(result.name)
+               setLastSyncTime()
+               document.getElementById('errorScreen').classList.add('hidden')
+               document.getElementById('mainScreen').classList.remove('hidden')
+               document.getElementById('logout').classList.remove('hidden')
+            } else if (!result && result !== undefined) {
+               localStorage.lastConnectionError = Date.now()
+               document.getElementById('selectFoldersScreen').classList.add('hidden')
+               document.getElementById('logout').classList.add('hidden')
+               setTimeout(function() {
+                  document.getElementById('errorScreen').classList.remove('hidden')
+               }, 300)
+            }
+         })
+      })
+   }
+   
+   function walkTree(list, callback, data) {
+      for (var i = 0; i < list.length; i++) {
+         if (list[i].parentId && list[i].parentId != '0') {
+            callback(list[i], data)
+         }
+         if (list[i].children) {
+            walkTree(list[i].children, callback, data)
+         }
+      }
+   }
+   
+   function loadFolderTree(data) {
+      
+      function processItem(item, container) {
+         var el = document.createElement('div')
+         el.classList.add('folder')
+         
+         var title = document.createElement('div')
+         title.classList.add('title')
+         var span = document.createElement('span')
+         span.textContent = item.title
+         var cbx = document.createElement('input')
+         cbx.type = 'checkbox'
+         title.appendChild(cbx)
+         title.appendChild(span)
+         
+         el.appendChild(title)
+         
+         if (item.children) {
+            var c = document.createElement('div')
+            c.classList.add('items')
+            item.children.forEach(function(child) {
+               processItem(child, c)
+            })
+            el.appendChild(c)
+         }
+         el.path = item.path
+         
+         container.appendChild(el)
+      }
+      
+      data.forEach(function(el) {
+         processItem(el, document.querySelector('#folderTree'))
+      })
+      
+      Array.prototype.forEach.call(document.querySelectorAll('#folderTree input'), function(el) {
+         el.checked = true
+         el.parentNode.classList.add('checked')
+      })
+      
+      XScroll.init(document.querySelector('#folderTree'), true)
    }
    
    document.getElementById('profileEditName').onkeydown = function(e) {
@@ -497,7 +590,7 @@ window.addEventListener("DOMContentLoaded", function() {
       document.getElementById('lastSyncTime').textContent = delta + ' seconds ago'
    }
    
-   var screen = localStorage.accessToken == 'null' ? 0 : (localStorage.profileId == 'null' ? 1 : 2)
+   var screen = localStorage.accessToken == 'null' ? 0 : (localStorage.profileId == 'null' ? 1 : (localStorage.ignoredFolders == 'null' ? 2 : 3))
    
    var disconnected = localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 60000
    
@@ -532,6 +625,28 @@ window.addEventListener("DOMContentLoaded", function() {
          })
          if (!disconnected) timer = setTimeout(function() {
             document.getElementById('startScreen').classList.remove('hidden')
+            document.getElementById('logout').classList.remove('hidden')
+         }, 200)
+      } else if (screen == 2) {
+         var timer = null
+         extension.sendMessage({ operation: 'getFolderTree' }, function(result) {
+            if (result) {
+               loadFolderTree(result)
+               document.getElementById('errorScreen').classList.add('hidden')
+               document.getElementById('selectFoldersScreen').classList.remove('hidden')
+            } else if (!result && result !== undefined) {
+               localStorage.lastConnectionError = Date.now()
+               clearTimeout(timer)
+               document.getElementById('selectFoldersScreen').classList.add('hidden')
+               document.getElementById('mainScreen').classList.add('hidden')
+               document.getElementById('logout').classList.add('hidden')
+               setTimeout(function() {
+                  document.getElementById('errorScreen').classList.remove('hidden')
+               }, 300)
+            }
+         })
+         if (!disconnected) timer = setTimeout(function() {
+            document.getElementById('selectFoldersScreen').classList.remove('hidden')
             document.getElementById('logout').classList.remove('hidden')
          }, 200)
       } else {

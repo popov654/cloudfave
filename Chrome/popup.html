@@ -223,6 +223,63 @@
            color: #bababa;
            margin: 2px 0px;
         }
+        
+        .bottom-fixed {
+           box-sizing: border-box;
+           width: 100%;
+           position: absolute;
+           left: 0px;
+           bottom: 32px;
+        }
+        .folders_container {
+           padding: 10px;
+           width: 100%;
+           max-height: 190px;
+           text-align: left;
+           user-select: none;
+        }
+        .folders_container::after {
+           display: block;
+           content: '';
+           position: absolute;
+           left: 0px;
+           bottom: 0px;
+           width: 100%;
+           height: 6px;
+           background: linear-gradient(to bottom, transparent 0%, #fff 90%, #fff 100%);
+        }
+        .folder > .title {
+           background: url('img/open-folder.png') 30px 50% / 23px no-repeat;
+           padding: 4px 13px 5px 6px;
+           height: 18px;
+           overflow: hidden;
+           cursor: pointer;
+        }
+        .folder > .title > input[type="checkbox"] {
+           margin: 0px 30px 0px 3px;
+           position: relative;
+           top: 2px;
+           font-size: 16px;
+           width: 16px;
+           height: 16px;
+           accent-color: #328dcb;
+        }
+        .folder > .title > input[type="checkbox"]:checked::before {
+           filter: saturate(0.86) !important;
+        }
+        .folder > .title:hover {
+           background-color: #ececec;
+        }
+        .folder > .title > span {
+           min-width: 198px;
+           max-width: 290px;
+           overflow: hidden;
+           text-overflow: ellipsis;
+        }
+        .folder > .items {
+           margin-left: 28px;
+        }
+        
         #startScreen label > span {
            position: relative;
            top: -2px;
@@ -230,7 +287,7 @@
         #startScreen label > div {
            padding: 2px 6px; 
         }
-        #nextButton, #syncButton {
+        #nextButton, #nextButton2, #syncButton {
            width: 90px;
         }
         #activeProfile {
@@ -277,7 +334,7 @@
         #nameEditBtn:hover > svg {
            fill: #c3c3c8;
         }
-        
+
         #loaderWrap {
            padding: 6px 0px;
            margin-top: -12px;
@@ -374,6 +431,13 @@
          <div style="padding: 3px 3px 12px"><input type="checkbox" id="mergeExistingData" /><label for="mergeExistingData">Merge existing data</label></div>
       </label></div>
       <div class="line"><center><button id="nextButton">Next</button></center></div>
+   </div>
+   <div id="selectFoldersScreen" class="hidden">
+      <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
+         <div style="box-sizing: border-box; width: 100%; padding: 4px 10px 0px; text-align: left">Select folders to sync</div>
+         <div class="folders_container scrollable scroll_y" id="folderTree" button-size="1" scroll-delta="20" thumb-length="50" thumb-width="5"></div>
+         <div class="line bottom-fixed"><center><button id="nextButton2">Next</button></center></div>
+      </div>
    </div>
    <div id="mainScreen" style="height: 180px" class="hidden">
       <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
