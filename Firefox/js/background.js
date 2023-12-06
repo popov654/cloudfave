@@ -470,7 +470,7 @@ function importData(data, callback) {
          }
          
          var skip = data[index].id == 0 || data[index].id == firefoxIds[0] ||
-                    index < 2 && parent_id == 0 ||
+                    index < 3 && parent_id == 0 ||
                     index < 4 && parent_id == firefoxIds[0] ||
                     !data[index].title && !data[index].url || exists
          
