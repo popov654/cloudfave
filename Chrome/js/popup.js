@@ -68,6 +68,7 @@ window.addEventListener("DOMContentLoaded", function() {
             extension.sendMessage({ operation: 'getProfiles' }, function(result) {
                if (result && result.data) {
                   document.getElementById('startScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
                   setTimeout(function() { loadProfiles(result.data) }, 20)
                }
                if (result && result.error) {
@@ -335,13 +336,15 @@ window.addEventListener("DOMContentLoaded", function() {
    
    document.getElementById('nextButton').onclick = function() {
       if (this.classList.contains('disabled')) return
+      var loader = getElementsByClass('loader', document.body, 'div')[0]
       if (document.getElementById('createNewProfile').checked) {
-         getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
+         loader.style.position = 'relative'
+         loader.style.top = '-80px'
          var title = profileNameField.value
          if (title.trim().match(/^\s*$/)) return
          document.getElementById('nextButton').classList.add('disabled')
          extension.sendMessage({ operation: 'createProfile', name: title }, function(result) {
-            getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
+            loader.style.display = 'none'
             if (result) {
                setProfileId(result)
             } else {
@@ -367,6 +370,7 @@ window.addEventListener("DOMContentLoaded", function() {
          document.getElementById('startScreen').classList.add('hidden')
          setTimeout(function() {
             document.getElementById('selectFoldersScreen').classList.remove('hidden')
+            initUI(2)
          }, 300)
       })
    }
@@ -528,6 +532,7 @@ window.addEventListener("DOMContentLoaded", function() {
          if (result) {
             document.getElementById('loginScreen').classList.remove('hidden')
             document.getElementById('startScreen').classList.add('hidden')
+            document.getElementById('selectFoldersScreen').classList.add('hidden')
             document.getElementById('mainScreen').classList.add('hidden')
             document.getElementById('errorScreen').classList.add('hidden')
             document.getElementById('logout').classList.add('hidden')
@@ -547,7 +552,7 @@ window.addEventListener("DOMContentLoaded", function() {
       var username = document.getElementById('username').value
       var password = document.getElementById('password').value
       
-      browser.runtime.sendMessage({ operation: 'register', data: { username, password } }, function(result) {
+      extension.sendMessage({ operation: 'register', data: { username, password } }, function(result) {
          getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
          if (result === null) {
             document.getElementById('loginScreen').classList.add('hidden')
@@ -617,6 +622,8 @@ window.addEventListener("DOMContentLoaded", function() {
       document.getElementById('logout').classList.add('hidden')
    }
    
+   initUI(screen, disconnected)
+   
    function addLoader(container) {
       var loader = document.createElement('div')
       loader.classList.add('loader')
@@ -646,78 +653,84 @@ window.addEventListener("DOMContentLoaded", function() {
       container.style.position = ''
    }
    
-   if (screen > 0) {
-      document.getElementById('loginScreen').classList.add('hidden')
-      if (screen == 1) {
-         var timer = null
-         extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-            if (result) {
-               document.getElementById('errorScreen').classList.add('hidden')
+   function initUI(screen, disconnected) {
+      if (screen > 0) {
+         document.getElementById('loginScreen').classList.add('hidden')
+         if (screen == 1) {
+            var timer = null
+            extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+               if (result && result.data) {
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('startScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+                  loadProfiles()
+               }
+               if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+               }
+               if (result === null) {
+                  localStorage.lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('startScreen').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                     document.getElementById('logout').classList.add('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
                document.getElementById('startScreen').classList.remove('hidden')
                document.getElementById('logout').classList.remove('hidden')
-               loadProfiles()
-            }
-            else if (result === null) {
-               localStorage.lastConnectionError = Date.now()
-               clearTimeout(timer)
-               document.getElementById('startScreen').classList.add('hidden')
-               setTimeout(function() {
-                  document.getElementById('errorScreen').classList.remove('hidden')
+            }, 200)
+         } else if (screen == 2) {
+            var timer = null
+            addLoader(document.getElementById('folderTree'))
+            extension.sendMessage({ operation: 'getFolderTree' }, function(result) {
+               if (result && !result.error) {
+                  removeLoader(document.getElementById('folderTree'))
+                  loadFolderTree(result)
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('selectFoldersScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+               } else if (!result && result !== undefined) {
+                  removeLoader(document.getElementById('folderTree'))
+                  localStorage.lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('selectFoldersScreen').classList.add('hidden')
+                  document.getElementById('mainScreen').classList.add('hidden')
                   document.getElementById('logout').classList.add('hidden')
-               }, 300)
-            }
-         })
-         if (!disconnected) timer = setTimeout(function() {
-            document.getElementById('startScreen').classList.remove('hidden')
-            document.getElementById('logout').classList.remove('hidden')
-         }, 200)
-      } else if (screen == 2) {
-         var timer = null
-         addLoader(document.getElementById('folderTree'))
-         extension.sendMessage({ operation: 'getFolderTree' }, function(result) {
-            if (result) {
-               removeLoader(document.getElementById('folderTree'))
-               loadFolderTree(result)
-               document.getElementById('errorScreen').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
                document.getElementById('selectFoldersScreen').classList.remove('hidden')
-            } else if (!result && result !== undefined) {
-               removeLoader(document.getElementById('folderTree'))
-               localStorage.lastConnectionError = Date.now()
-               clearTimeout(timer)
-               document.getElementById('selectFoldersScreen').classList.add('hidden')
-               document.getElementById('mainScreen').classList.add('hidden')
-               document.getElementById('logout').classList.add('hidden')
-               setTimeout(function() {
-                  document.getElementById('errorScreen').classList.remove('hidden')
-               }, 300)
-            }
-         })
-         if (!disconnected) timer = setTimeout(function() {
-            document.getElementById('selectFoldersScreen').classList.remove('hidden')
-         }, 200)
-      } else {
-         var timer = null
-         extension.sendMessage({ operation: 'getProfileName' }, function(result) {
-            if (result) {
-               setProfileName(result.name)
-               setLastSyncTime()
-               document.getElementById('errorScreen').classList.add('hidden')
+            }, 200)
+         } else {
+            var timer = null
+            extension.sendMessage({ operation: 'getProfileName' }, function(result) {
+               if (result) {
+                  setProfileName(result.name)
+                  setLastSyncTime()
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('mainScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
+               } else if (!result && result !== undefined) {
+                  localStorage.lastConnectionError = Date.now()
+                  clearTimeout(timer)
+                  document.getElementById('mainScreen').classList.add('hidden')
+                  document.getElementById('logout').classList.add('hidden')
+                  setTimeout(function() {
+                     document.getElementById('errorScreen').classList.remove('hidden')
+                  }, 300)
+               }
+            })
+            if (!disconnected) timer = setTimeout(function() {
                document.getElementById('mainScreen').classList.remove('hidden')
                document.getElementById('logout').classList.remove('hidden')
-            } else if (!result && result !== undefined) {
-               localStorage.lastConnectionError = Date.now()
-               clearTimeout(timer)
-               document.getElementById('mainScreen').classList.add('hidden')
-               document.getElementById('logout').classList.add('hidden')
-               setTimeout(function() {
-                  document.getElementById('errorScreen').classList.remove('hidden')
-               }, 300)
-            }
-         })
-         if (!disconnected) timer = setTimeout(function() {
-            document.getElementById('mainScreen').classList.remove('hidden')
-            document.getElementById('logout').classList.remove('hidden')
-         }, 200)
+            }, 200)
+         }
       }
    }
    
