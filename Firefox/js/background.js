@@ -398,7 +398,7 @@ function importData(data, callback) {
       var last_parent_id = 0
       var last_parent = data[0]
       
-      processItem(data, 0, null, sortDirectory, callback)
+      processItem(data, 0, null, function() { callback(data) })
       
       function sortDirectory(parent) {
          if (mode == 0 && parent && parent.total_list && parent.ex_list) {
@@ -431,7 +431,22 @@ function importData(data, callback) {
          return id
       }
 
-      function processItem(data, index, parent, itemComplete, allComplete) {
+      function processItem(data, index, parent, parentFinish) {
+         
+         function onfinish(next) {
+            if (index+1 >= data.length) {
+               if (parent) sortDirectory(parent)
+               if (parentFinish) parentFinish()
+            } else {
+               processItem(data, index+1, parent, parentFinish)
+            }
+         }
+         
+         if (data.length == 0) {
+            onfinish()
+            return
+         }
+         
          var parent_id = parent && folderId(parent.id) || folder.id
          
          data[index].path = parent && parent.path ? parent.path.concat(data[index].title) : []
@@ -443,13 +458,14 @@ function importData(data, callback) {
             browser.bookmarks.getChildren(parent_id, function(list) {
                if (browser.runtime.lastError || !list) {
                   console.log('Error getting children of node ' + parent.id)
+                  onfinish()
                   return
                }
                for (var i = 0; i < list.length; i++) {
                   parent.ex_list.push(list[i])
                   parent.total_list.push(list[i])
                }
-               processItem(data, index, parent, itemComplete, allComplete)
+               processItem(data, index, parent, parentFinish)
             });
             return
          }
@@ -481,38 +497,28 @@ function importData(data, callback) {
                   url: data[index].url
                },
                function(bookmark) {
-                  if (!bookmark) return
+                  if (!bookmark) {
+                     onfinish()
+                     return
+                  }
                   if (parent && parent.total_list) {
                      parent.total_list.push(bookmark)
                   }
-                  console.log(bookmark.url ? "Added bookmark: " + bookmark.url : "Added folder: " + bookmark.title);
+                  // console.log(bookmark.url ? "Added bookmark: " + bookmark.url : "Added folder: " + bookmark.title);
                   data[index].id = bookmark.id
+                  
                   if (data[index].children && data[index].children.length) {
-                     processItem(data[index].children, 0, data[index], itemComplete, allComplete)
-                  }
-                  if (index+1 < data.length) {
-                     processItem(data, index+1, parent, itemComplete, allComplete)
-                  }
-                  if (itemComplete && index+1 == data.length) {
-                     itemComplete(parent)
-                     if (parent == null && allComplete) {
-                        allComplete(parent)
-                     }
+                     processItem(data[index].children, 0, data[index], onfinish)
+                  } else {
+                     onfinish()
                   }
                }
             );
          }
          if (skip && data[index].children && data[index].children.length) {
-            processItem(data[index].children, 0, data[index], itemComplete, allComplete)
-         }
-         if (skip && index+1 < data.length) {
-            processItem(data, index+1, parent, itemComplete, allComplete)
-         }
-         if (skip && itemComplete && index+1 == data.length) {
-            itemComplete(parent)
-            if (parent == null && allComplete) {
-               allComplete(data)
-            }
+            processItem(data[index].children, 0, data[index], onfinish)
+         } else if (skip) {
+            onfinish()
          }
       }
    })
@@ -732,6 +738,7 @@ function setBeforeAndAfter(list, pos, details) {
 }
 
 function containsPath(list, path) {
+   if (!list) return false
    for (var i = 0; i < list.length; i++) {
       if (!list[i].length || list[i].length != path.length) {
          continue
