@@ -326,6 +326,7 @@ window.addEventListener("DOMContentLoaded", function() {
    document.getElementById('selectExistingProfile').onchange = function() {
       var el = document.getElementById('selectExistingProfile')
       el.nextElementSibling.lastElementChild.style.visibility = el.checked ? '' : 'hidden'
+      if (el.checked) document.getElementById('nextButton').classList.remove('disabled')
    }
    
    document.getElementById('nextButton').onclick = function() {
