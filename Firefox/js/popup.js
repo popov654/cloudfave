@@ -50,6 +50,7 @@ window.addEventListener("DOMContentLoaded", function() {
       
       var btn = loginForm.getElementsByTagName('button')[0]
       btn.classList.add('disabled')
+      hideError()
       getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
       
       extension.sendMessage({ operation: 'authorize', data: { username, password } }, function(result) {
@@ -61,9 +62,9 @@ window.addEventListener("DOMContentLoaded", function() {
             }, 200)
          } else if (result === false) {
             btn.classList.remove('disabled')
-            document.getElementById('loginError').classList.add('visible')
+            showError('Invalid username or password')
          } else {
-            document.getElementById('loginError').classList.remove('visible')
+            hideError()
             document.getElementById('loginScreen').classList.add('hidden')
             extension.sendMessage({ operation: 'getProfiles' }, function(result) {
                if (result && result.data) {
@@ -577,7 +578,13 @@ window.addEventListener("DOMContentLoaded", function() {
    }
    
    function setProfileName(value) {
-      document.getElementById('activeProfile').textContent = value || localStorage.profileName
+      document.getElementById('activeProfile').textContent = value
+   }
+   
+   function updateLastSyncTime() {
+      browser.storage.local.get(['last_sync'], function(result) {
+         setLastSyncTime(result.last_sync)
+      })
    }
    
    function setLastSyncTime() {
@@ -668,6 +675,9 @@ window.addEventListener("DOMContentLoaded", function() {
                }
                if (result && result.error) {
                   browser.storage.local.set({ access_token: null, profile_id: null })
+                  clearTimeout(timer)
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('loginScreen').classList.remove('hidden')
                }
                if (result === null) {
                   localStorage.lastConnectionError = Date.now()
@@ -693,7 +703,12 @@ window.addEventListener("DOMContentLoaded", function() {
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('selectFoldersScreen').classList.remove('hidden')
                   document.getElementById('logout').classList.remove('hidden')
-               } else if (!result && result !== undefined) {
+               } else if (result && result.error) {
+                  browser.storage.local.set({ access_token: null, profile_id: null })
+                  clearTimeout(timer)
+                  document.getElementById('errorScreen').classList.add('hidden')
+                  document.getElementById('loginScreen').classList.remove('hidden')
+               } else if (result == null) {
                   removeLoader(document.getElementById('folderTree'))
                   localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
@@ -711,7 +726,7 @@ window.addEventListener("DOMContentLoaded", function() {
          } else {
             var timer = null
             extension.sendMessage({ operation: 'getProfileName' }, function(result) {
-               if (result) {
+               if (result && result.name) {
                   setProfileName(result.name)
                   setLastSyncTime()
                   document.getElementById('errorScreen').classList.add('hidden')
