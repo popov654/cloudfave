@@ -747,7 +747,7 @@ XScroll.init = function(el, force) {
       this.floatPositionY = this.scrollHeight > 0 ? this.scrollTop / this.scrollHeight : 0
    })
    
-   addEventHandler(window, 'resize', function() {
+   if (!('browser' in window) || !browser.runtime) addEventHandler(window, 'resize', function() {
       var els = getElementsByClass('scrollable', document.body, '*')
       for (var i = 0; i < els.length; i++) {
          if (els[i].floatPositionX) els[i].scrollLeft = els[i].scrollWidth * els[i].floatPositionX
