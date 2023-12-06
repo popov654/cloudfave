@@ -376,8 +376,7 @@ function renameProfile(name, callback) {
 }
 
 function importData(data, callback) {
-   var folder = null
-      
+   
    if (isFirefox && data[0].children.length > 3) {
       var el = data[0].children[2]
       data[0].children[2] = data[0].children[3]
@@ -391,7 +390,7 @@ function importData(data, callback) {
    }
    
    browser.bookmarks.getTree(function(tree){
-      folder = getRootFolder(tree)
+      var folder = getRootFolder(tree)
       if (folder.id == 0) folder = folder.children[1]
       
       var count = 0
@@ -1125,16 +1124,12 @@ function executeDeleteBookmark(log, index, callback) {
 }
 
 function findFolderByPath(path) {
-   var folder = 0
    if (folderCache[path.join('>')]) {
       return Promise.resolve(folderCache[path.join('>')])
    }
    return new Promise(function(resolve) {
       browser.bookmarks.getTree(function(tree){
-         folder = getRootFolder(tree)
-         if (folderId > -1) {
-            path = path.slice(1)
-         }
+         var folder = getRootFolder(tree)
          var result = findItem(folder.children, path)
          folderCache[path.join('>')] = result
          resolve(result)
@@ -1164,14 +1159,10 @@ function findFolderByPath(path) {
 }
 
 function findBookmarkByPath(path, url, title) {
-   var folder = 0
    return (function(path) {
       return new Promise(function(resolve) {
          browser.bookmarks.getTree(function(tree){
-            folder = getRootFolder(tree)
-            if (folderId > -1) {
-               path = path.slice(1)
-            }
+            var folder = getRootFolder(tree)
             resolve(findItem(folder.children, path, url, title))
          })
       })
