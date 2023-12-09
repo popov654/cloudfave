@@ -587,7 +587,7 @@ async function compareWithSnapshot() {
          
          var outer = snapshot[0].children
          
-         compareItem(outer, 0, [], outer.slice(), () => resolve(log))
+         compareItem(snapshot[0], [], outer.slice()).then(() => resolve(log))
          
          function findIndexByURL(list, url, title) {
             for (var i = 0; i < list.length; i++) {
@@ -596,10 +596,25 @@ async function compareWithSnapshot() {
             return -1
          }
          
-         function compareItem(list, i, path, _list, parentFinish) {
+         async function compareItem(el, path, _list) {
             
-            function onfinish() {
-               if (i+1 >= list.length) {
+            return new Promise(async function(resolve) {
+            
+               if (containsPath(ignoredFolders, path)) {
+                  resolve()
+                  return
+               }
+               
+               if (el.children) {
+                  var cl = el.children, _cl = el.children.slice()
+                  for (var j = 0; j < cl.length; j++) {
+                     var title = cl[j].title
+                     if (isRootFolder(cl[j].parentId)) {
+                        title = getDefaultNameByIndex(j)
+                     }
+                     await compareItem(cl[j], path.concat(title), _cl)
+                  }
+                  
                   var pathStr = path.join('>')
                   if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
                      var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
@@ -609,87 +624,74 @@ async function compareWithSnapshot() {
                      }
                      delete map[pathStr]
                   }
-                  if (parentFinish) parentFinish()
-               } else {
-                  compareItem(list, i+1, path, _list, parentFinish)
                }
-            }
-            
-            if (list.length == 0 || containsPath(ignoredFolders, path)) {
-               onfinish()
-               return
-            }
-            
-            try {
-               browser.bookmarks.get(list[i].id, function(result) {
-                  if (browser.runtime.lastError || result == null) {
-                     var pos = findIndexByURL(_list, list[i].url, list[i].title)
-                     _list.splice(pos, 1)
-                     for (var j = pos; j < _list.length; j++) {
-                        _list[j].index--
-                     }
-                     log.push({ action: 'delete', url: list[i].url, title: list[i].title, path: path });
-                     
-                     onfinish()
-                  } else {
-                     if (!result[0].url && isRootFolder(result[0].parentId)) {
-                        result[0].title = getDefaultNameById(result[0].id)
-                     }
-                     if (result[0].title != list[i].title) {
-                        log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
-                     }
-                     if (result[0].url != list[i].url) {
-                        log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
-                     }
-                     if (result[0].parentId != list[i].parentId) {
-                        var pathStr = path.join('>')
-                        if (!map[pathStr]) map[pathStr] = [[], []]
-                        var new_path = []
-                        getFullPath(result[0].parentId, snapshot).then(function(new_path) {
-                           var pos = log.length
-                           while (pos > 0 && log[pos-1].action == 'modify' && 
-                              JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
-                              pos--
-                           }
-                           var details = { path: new_path, index: result[0].index }
-                           
-                           var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
-                           setBeforeAndAfter(_list, oldIndex, details)
-                           log.splice(pos, 0, { action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
-                           
-                           map[pathStr][1].push({ url: list[i].url, details });
-                           
-                           if (!list[i].children) onfinish()
-                        })
-                     }
-                     else if (result[0].index != list[i].index) {
-                        var pathStr = path.join('>')
-                        if (!map[pathStr]) map[pathStr] = [[], []]
-                        var details = { index: result[0].index }
-                        
-                        var oldIndex = findIndexByURL(_list, list[i].url, list[i].title)
-                        setBeforeAndAfter(_list, oldIndex, details)
-                        //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
-                        
-                        if (details.index > oldIndex) {
-                           map[pathStr][1].push({ url: list[i].url, title: list[i].title, details })
-                        } else if (details.index < oldIndex) {
-                           map[pathStr][0].push({ url: list[i].url, title: list[i].title, details })
+               
+               try {
+                  browser.bookmarks.get(el.id, function(result) {
+                     if (browser.runtime.lastError || result == null) {
+                        var pos = findIndexByURL(_list, el.url, el.title)
+                        _list.splice(pos, 1)
+                        for (var j = pos; j < _list.length; j++) {
+                           _list[j].index--
                         }
-                        if (!list[i].children) onfinish()
+                        log.push({ action: 'delete', url: el.url, title: el.title, path: path });
+                        
+                        resolve()
                      } else {
-                        if (!list[i].children || containsPath(ignoredFolders, path.concat(list[i].title))) onfinish()
-                     }
-                     if (list[i].children && !containsPath(ignoredFolders, path.concat(list[i].title))) {
-                        var title = list[i].title
-                        if (isRootFolder(list[i].parentId)) {
-                           title = getDefaultNameByIndex(i)
+                        if (!result[0].url && isRootFolder(result[0].parentId)) {
+                           result[0].title = getDefaultNameById(result[0].id)
                         }
-                        compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
+                        if (result[0].title != el.title) {
+                           log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: { title: result[0].title }})
+                        }
+                        if (result[0].url != el.url) {
+                           log.push({ action: 'modify', url: list[i].url, path: path, details: { url: result[0].url }})
+                        }
+                        if (result[0].parentId != el.parentId) {
+                           var pathStr = path.join('>')
+                           if (!map[pathStr]) map[pathStr] = [[], []]
+                           var new_path = []
+                           getFullPath(result[0].parentId, snapshot).then(function(new_path) {
+                              var pos = log.length
+                              while (pos > 0 && log[pos-1].action == 'modify' && 
+                                 JSON.stringify(log[pos-1].path) == JSON.stringify(new_path)) {
+                                 pos--
+                              }
+                              var details = { path: new_path, index: result[0].index }
+                              
+                              var oldIndex = findIndexByURL(_list, el.url, el.title)
+                              setBeforeAndAfter(_list, oldIndex, details)
+                              log.splice(pos, 0, { action: 'modify', url: el.url, title: el.title, path: path, details: details })
+                              
+                              map[pathStr][1].push({ url: el.url, details });
+                              
+                              resolve()
+                           })
+                        }
+                        else if (result[0].index != el.index) {
+                           var pathStr = path.join('>')
+                           if (!map[pathStr]) map[pathStr] = [[], []]
+                           var details = { index: result[0].index }
+                           
+                           var oldIndex = findIndexByURL(_list, el.url, el.title)
+                           setBeforeAndAfter(_list, oldIndex, details)
+                           //log.push({ action: 'modify', url: list[i].url, title: list[i].title, path: path, details: details })
+                           
+                           if (details.index > oldIndex) {
+                              map[pathStr][1].push({ url: el.url, title: el.title, details })
+                           } else if (details.index < oldIndex) {
+                              map[pathStr][0].push({ url: el.url, title: el.title, details })
+                           }
+                           resolve()
+                        } else {
+                           resolve()
+                        }
                      }
-                  }
-               })
-            } catch (e) {}
+                  })
+               } catch (e) {
+                  console.log(e)
+               }
+            })
          }
       }, 50)
    })
