@@ -357,6 +357,19 @@ function renameProfile(name, callback) {
 
 function importData(data, callback) {
    var folder = null
+      
+   if (isFirefox && data[0].children.length > 3) {
+      var el = data[0].children[2]
+      data[0].children[2] = data[0].children[3]
+      data[0].children[3] = el
+      data[0].children.splice(4, data[0].children.length - 4)
+   } else if (data[0].children.length > 3) {
+      for (var i = data[0].children[3].children.length-1; i >= 0; i--) {
+         data[0].children[1].children.unshift(data[0].children[3].children[i])
+      }
+      data[0].children.splice(3, data[0].children.length - 3)
+   }
+   
    browser.bookmarks.getTree(function(tree){
       folder = getRootFolder(tree)
       if (folder.id == 0) folder = folder.children[1]
@@ -386,7 +399,17 @@ function importData(data, callback) {
       }
       
       function folderId(id) {
-         return isFirefox ? firefoxIds[id] : id
+         if (isFirefox && id.toString().match(/^\d+$/)) {
+            return firefoxIds[id]
+         }
+         if (!isFirefox && !id.toString().match(/^\d+$/)) {
+            for (var key in firefoxIds) {
+               if (firefoxIds[key] == id) {
+                  return key
+               }
+            }
+         }
+         return id
       }
 
       function processItem(data, index, parent, itemComplete, allComplete) {
@@ -426,9 +449,9 @@ function importData(data, callback) {
             }
          }
          
-         var skip = data[index].id == 0 ||
+         var skip = data[index].id == 0 || data[index].id == firefoxIds[0] ||
                     index < 2 && parent_id == 0 ||
-                    isFirefox && index < 4 && parent_id == firefoxIds[0] ||
+                    index < 4 && parent_id == firefoxIds[0] ||
                     !data[index].title && !data[index].url || exists
          
          if (!skip) {
@@ -492,6 +515,18 @@ function normalizeFolders(root) {
    for (var i = 0; i < root.children.length; i++) {
       root.children[i].title = getDefaultNameById(root.children[i].id)
    }
+   if (root.children.length > 3) {
+      for (var i = 0; i < root.children.length; i++) {
+         if (root.children[i].title == 'Bookmarks menu') {
+            var el = root.children[i]
+            el.children = el.children.filter(el => el.type == 'folder' || el.url && !el.url.match(/^(place|data):/))
+            root.children.splice(i, 1)
+            root.children.splice(3, 0, el)
+            break
+         }
+      }
+      root.children.splice(4, root.children.length - 4)
+   }
 }
 
 function exportData(callback) {
@@ -502,15 +537,22 @@ function exportData(callback) {
          if (element.parentId === undefined) {
             element.parentId = default_id
          }
+         delete element.path
       })
       callback(result)
    });
 }
 
 function saveSnapshot(callback) {
-   exportData(function(data) {
-      browser.storage.local.set({ snapshot: data }, callback)
-   })
+   browser.bookmarks.getTree(function(result) {
+      var root = result[0]
+      for (var i = 0; i < root.children.length; i++) {
+         root.children[i].title = getDefaultNameById(root.children[i].id)
+      }
+      browser.storage.local.set({ snapshot: result }, function() {
+         if (callback) callback(result)
+      })
+   });
 }
 
 function createSnapshotIfNull() {
@@ -691,13 +733,15 @@ function checkForNewItems() {
    
    return new Promise(function(resolve) {
    
-      var folder = 0
       var log = []
       
       browser.bookmarks.getTree(function(tree){
          browser.storage.local.get(['snapshot'], function(res) {
             var snapshot = res.snapshot
             walkTree(tree[0].children, tree[0], function(element) {
+               if (element.url && element.url.match(/^(place|data):/)) {
+                  return
+               }
                getFullPath(element.parentId, tree).then(path => {
                   if (containsPath(ignoredFolders, path)) {
                      return
@@ -887,6 +931,13 @@ function executeCommand(log, index, onfinish) {
       index++
       next()
       return
+   }
+   
+   if (!isFirefox && log[index].path[0] == 'Bookmarks menu') {
+      log[index].path[0] = 'Other bookmarks'
+      if (log[index].details && log[index].details.path && log[index].details.path[0] == 'Bookmarks menu') {
+         log[index].details.path[0] = 'Other bookmarks'
+      }
    }
    
    switch (log[index].action) {
