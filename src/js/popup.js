@@ -49,20 +49,21 @@ window.addEventListener("DOMContentLoaded", function() {
       
       browser.runtime.sendMessage({ operation: 'authorize', data: { username, password } }, function(result) {
          getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
-         if (result === null || result.status == 500) {
+         if (result === null || result && result.status == 500) {
             document.getElementById('loginScreen').classList.add('hidden')
             setTimeout(function() {
                document.getElementById('errorScreen').classList.remove('hidden')
             }, 200)
-         } else if (result.status >= 400 && result.status < 500) {
+         } else if (result && result.status >= 400 && result.status < 500) {
             btn.classList.remove('disabled')
             showError('Invalid username or password')
-         } else if (result.status == 200) {
+         } else if (result && result.status == 200) {
             hideError()
             document.getElementById('loginScreen').classList.add('hidden')
             browser.runtime.sendMessage({ operation: 'getProfiles' }, function(result) {
                if (result && result.data) {
                   document.getElementById('startScreen').classList.remove('hidden')
+                  document.getElementById('logout').classList.remove('hidden')
                   setTimeout(function() { loadProfiles(result.data) }, 20)
                }
                if (result && result.error) {
@@ -162,8 +163,6 @@ window.addEventListener("DOMContentLoaded", function() {
             list.children[1].style.height = Math.ceil(c.children.length * c.children[0].clientHeight) + parseFloat(st0.paddingTop) + parseFloat(st0.paddingBottom) +
                                              Math.round(parseFloat(st0.borderTopWidth)) + Math.round(parseFloat(st0.borderBottomWidth)) + 'px'
             XScroll.scrollToY(list.children[1], 0)
-            document.getElementById('logout').classList.remove('hidden')
-            document.getElementById('startScreen').style.paddingBottom = '40px'
          }, 800)
       }
       list.children[0].innerHTML = ''
@@ -331,13 +330,15 @@ window.addEventListener("DOMContentLoaded", function() {
    
    document.getElementById('nextButton').onclick = function() {
       if (this.classList.contains('disabled')) return
+      var loader = getElementsByClass('loader', document.body, 'div')[0]
       if (document.getElementById('createNewProfile').checked) {
-         getElementsByClass('loader', document.body, 'div')[0].style.display = 'block'
+         loader.style.position = 'relative'
+         loader.style.top = '-80px'
          var title = profileNameField.value
          if (title.trim().match(/^\s*$/)) return
          document.getElementById('nextButton').classList.add('disabled')
          browser.runtime.sendMessage({ operation: 'createProfile', name: title }, function(result) {
-            getElementsByClass('loader', document.body, 'div')[0].style.display = 'none'
+            loader.style.display = 'none'
             if (result) {
                setProfileId(result)
             } else {
@@ -525,6 +526,7 @@ window.addEventListener("DOMContentLoaded", function() {
          if (result) {
             document.getElementById('loginScreen').classList.remove('hidden')
             document.getElementById('startScreen').classList.add('hidden')
+            document.getElementById('selectFoldersScreen').classList.add('hidden')
             document.getElementById('mainScreen').classList.add('hidden')
             document.getElementById('errorScreen').classList.add('hidden')
             document.getElementById('logout').classList.add('hidden')
@@ -694,8 +696,8 @@ window.addEventListener("DOMContentLoaded", function() {
             var timer = null
             addLoader(document.getElementById('folderTree'))
             browser.runtime.sendMessage({ operation: 'getFolderTree' }, function(result) {
-               if (result) {
-                  removeLoader(document.getElementById('folderTree'))
+               removeLoader(document.getElementById('folderTree'))
+               if (result && !result.error) {
                   loadFolderTree(result)
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('selectFoldersScreen').classList.remove('hidden')
@@ -706,7 +708,6 @@ window.addEventListener("DOMContentLoaded", function() {
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('loginScreen').classList.remove('hidden')
                } else if (result == null) {
-                  removeLoader(document.getElementById('folderTree'))
                   localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('selectFoldersScreen').classList.add('hidden')
@@ -748,4 +749,3 @@ window.addEventListener("DOMContentLoaded", function() {
    }
    
 })
-
