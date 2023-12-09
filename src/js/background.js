@@ -32,6 +32,25 @@ if (isFirefox) {
    }
 }
 
+browser.runtime.onInstalled.addListener(() => {
+   if (!browser.alarms) return
+   browser.alarms.clear('timer', () => {
+      browser.alarms.create('timer', { periodInMinutes: Math.max(5, syncInterval / 60000) })
+   })
+})
+
+if (browser.alarms) {
+   browser.alarms.get('timer', (alarm) => {
+      if (!alarm) {
+         browser.alarms.create('timer', { periodInMinutes: Math.max(5, syncInterval / 60000) })
+      }
+   })
+   browser.alarms.onAlarm.addListener(() => {
+      console.log('Syncing data...')
+      sync().then(() => console.log('Done.')).catch(e => { console.log(e) })
+   })
+}
+
 loadUserConfig(function() {
    getProfiles()
 })
@@ -742,7 +761,6 @@ function getFullPath(parentId) {
    })
 }
 
-var timer = setInterval(() => sync().catch(e => { console.log(e) }), syncInterval)
 
 var changesToSend = []
 var syncing = false
@@ -778,6 +796,9 @@ async function applyRemoteUpdates() {
          }
       })
       response = await response.json()
+      if (response.error) {
+         return Promise.reject()
+      }
       folderCache = {}
       for (var i = 0; i < response.data.length; i++) {
          await executeCommand(response.data[i])
