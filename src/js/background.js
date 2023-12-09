@@ -394,7 +394,7 @@ function importData(data, callback) {
                   return el1.dateAdded - el2.dateAdded
                })
             }
-            if (parent.id != 0) {
+            if (parent.id != 0 && parent.id != firefoxIds[0]) {
                for (var i = 0; i < parent.total_list.length; i++) {
                   browser.bookmarks.move(parent.total_list[i].id, { index: i })
                }
