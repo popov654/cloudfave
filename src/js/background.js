@@ -587,7 +587,7 @@ async function compareWithSnapshot() {
          
          var outer = snapshot[0].children
          
-         compareItem(outer, 0, [], outer.slice())
+         compareItem(outer, 0, [], outer.slice(), () => resolve(log))
          
          function findIndexByURL(list, url, title) {
             for (var i = 0; i < list.length; i++) {
@@ -600,8 +600,18 @@ async function compareWithSnapshot() {
             
             function onfinish() {
                if (i+1 >= list.length) {
+                  var pathStr = path.join('>')
+                  if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
+                     var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
+                     var a = map[pathStr][index]
+                     for (var j = 0; j < a.length; j++) {
+                        log.push({ action: 'modify', url: a[j].url, title: a[j].title, path: path, details: a[j].details })
+                     }
+                     delete map[pathStr]
+                  }
                   if (parentFinish) parentFinish()
-                  else resolve(log)
+               } else {
+                  compareItem(list, i+1, path, _list, parentFinish)
                }
             }
             
@@ -676,20 +686,6 @@ async function compareWithSnapshot() {
                            title = getDefaultNameByIndex(i)
                         }
                         compareItem(list[i].children, 0, path.concat(title), list[i].children.slice(), onfinish)
-                     }
-                  }
-                  if (i+1 < list.length) {
-                     compareItem(list, i+1, path, _list, parentFinish)
-                  } else {
-                     // Directory end
-                     var pathStr = path.join('>')
-                     if (map[pathStr] && (map[pathStr][0].length || map[pathStr][1].length)) {
-                        var index = map[pathStr][0].length <= map[pathStr][1].length && map[pathStr][0].length > 0 ? 0 : 1
-                        var a = map[pathStr][index]
-                        for (var j = 0; j < a.length; j++) {
-                           log.push({ action: 'modify', url: a[j].url, title: a[j].title, path: path, details: a[j].details })
-                        }
-                        delete map[pathStr]
                      }
                   }
                })
