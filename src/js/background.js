@@ -15,9 +15,8 @@ var syncInterval = 300000;
 var profileName = ''
    
 var browser = browser || chrome
-var extension = browser.extension || browser.runtime
-   
-if (!extension.onMessage) extension = browser.runtime
+var extension = browser.runtime
+
 
 var firefoxIds = { 0: 'root________', 1: 'toolbar_____', 2: 'unfiled_____', 3: 'mobile______' }
 var isFirefox = browser.runtime.getURL('').match(/^moz-/)
