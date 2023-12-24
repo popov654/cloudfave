@@ -47,8 +47,11 @@ if (browser.alarms) {
       }
    })
    browser.alarms.onAlarm.addListener(() => {
-      console.log('Syncing data...')
-      sync().then(() => console.log('Done.')).catch(e => { console.log(e) })
+      loadUserConfig(function() {
+         if (!syncEnabled) return
+         console.log('Syncing data...')
+         sync().then(() => console.log('Done.')).catch(e => { console.log(e) })
+      })
    })
 }
 
@@ -57,12 +60,13 @@ loadUserConfig(function() {
 })
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_sync', 'sync_interval'], 
+   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_sync', 'sync_enabled', 'sync_interval'], 
       function(result) {
          accessToken = result.access_token || null
          profileId = result.profile_id || null
          ignoredFolders = result.ignored_folders || null
          lastSync = result.last_sync || 0
+         syncEnabled = !(result.sync_enabled === false)
          syncInterval = result.sync_interval || 300000
          
          if (callback) callback()
