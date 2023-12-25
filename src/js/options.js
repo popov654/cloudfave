@@ -220,6 +220,10 @@ window.addEventListener("DOMContentLoaded", function() {
             }
          }
       })
+      
+      if (!document.querySelector('#navigation > [data-id="2"]').classList.contains('disabled')) {
+         loadRemoveHistory()
+      }
    })
    
    document.getElementById('sync_enabled').onchange = function() {
@@ -257,54 +261,56 @@ window.addEventListener("DOMContentLoaded", function() {
       item.style.opacity = '0'
    }
    
-   extension.sendMessage({ operation: 'getRemoveHistory' }, function(result) {
-      if (result) updateNavigation(result)
-      if (result && result.history && result.history.length) {
-         var list = document.getElementById('remove_history')
-         list.innerHTML = ''
-         result.history.forEach(el => {
-            var item = document.createElement('div')
-            item.className = 'item'
-            item.data = el
-            var title = document.createElement('span')
-            title.className = 'title'
-            title.textContent = el.details.title
-            item.appendChild(title)
-            
-            var urlWrap = document.createElement('span')
-            item.appendChild(urlWrap)
-            
-            var url = document.createElement('a')
-            url.className = 'link'
-            url.target = '_blank'
-            url.href = el.url
-            url.textContent = el.url
-            urlWrap.appendChild(url)
-            item.appendChild(urlWrap)
-            
-            
-            var restoreWrap = document.createElement('span')
-            item.appendChild(restoreWrap)
-            
-            var link = document.createElement('span')
-            link.className = 'link restore'
-            link.textContent = 'Restore'
-            restoreWrap.appendChild(link)
-            
-            list.appendChild(item)
-         })
-         list.addEventListener('click', function(event) {
-            if (event.target.classList.contains('restore')) {
-               var item = event.target.parentNode
-               while (item && item.parentNode.id != 'remove_history') {
-                  item = item.parentNode
+   function loadRemoveHistory() {
+      extension.sendMessage({ operation: 'getRemoveHistory' }, function(result) {
+         if (result) updateNavigation(result)
+         if (result && result.history && result.history.length) {
+            var list = document.getElementById('remove_history')
+            list.innerHTML = ''
+            result.history.forEach(el => {
+               var item = document.createElement('div')
+               item.className = 'item'
+               item.data = el
+               var title = document.createElement('span')
+               title.className = 'title'
+               title.textContent = el.details.title
+               item.appendChild(title)
+               
+               var urlWrap = document.createElement('span')
+               item.appendChild(urlWrap)
+               
+               var url = document.createElement('a')
+               url.className = 'link'
+               url.target = '_blank'
+               url.href = el.url
+               url.textContent = el.url
+               urlWrap.appendChild(url)
+               item.appendChild(urlWrap)
+               
+               
+               var restoreWrap = document.createElement('span')
+               item.appendChild(restoreWrap)
+               
+               var link = document.createElement('span')
+               link.className = 'link restore'
+               link.textContent = 'Restore'
+               restoreWrap.appendChild(link)
+               
+               list.appendChild(item)
+            })
+            list.addEventListener('click', function(event) {
+               if (event.target.classList.contains('restore')) {
+                  var item = event.target.parentNode
+                  while (item && item.parentNode.id != 'remove_history') {
+                     item = item.parentNode
+                  }
+                  extension.sendMessage({ operation: 'restoreBookmark', data: item.data }, function(result) {
+                     hideItem(item)
+                  })
                }
-               extension.sendMessage({ operation: 'restoreBookmark', data: item.data }, function(result) {
-                  hideItem(item)
-               })
-            }
-         })
-      }
-   })
+            })
+         }
+      })
+   }
    
 })
