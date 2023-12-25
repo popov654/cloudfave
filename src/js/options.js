@@ -183,6 +183,7 @@ window.addEventListener("DOMContentLoaded", function() {
    
    for (var i = 0; i < items.length; i++) {
       items[i].onclick = function() {
+         if (this.classList.contains('disabled')) return
          var items = document.getElementById('navigation').children
          for (var i = 0; i < items.length; i++) {
             items[i].classList.remove('active')
@@ -207,6 +208,18 @@ window.addEventListener("DOMContentLoaded", function() {
       document.getElementById('sync_enabled').checked = !(result.sync_enabled === false)
       var interval = parseInt(Math.floor(parseInt(result.sync_interval) / 60000))
       document.getElementById('sync_interval').value = !isNaN(interval) ? interval : 5
+      
+      Array.prototype.forEach.call(document.getElementById('navigation').children, function(el) {
+         if (result.access_token && (result.profile_id || el.getAttribute('data-id') != '2')) {
+            el.classList.remove('disabled')
+            el.removeAttribute('title')
+         } else {
+            if (el.classList.contains('disabled')) {
+               var title = !result.access_token ? 'You need to authorize first' : 'You need to select profile first'
+               el.setAttribute('title', title)
+            }
+         }
+      })
    })
    
    document.getElementById('sync_enabled').onchange = function() {
@@ -215,6 +228,19 @@ window.addEventListener("DOMContentLoaded", function() {
    
    document.getElementById('sync_interval').onchange = function() {
       extension.sendMessage({ operation: 'setParameter', data: { name: 'sync_interval', value: this.value } })
+   }
+   
+   function updateNavigation(result) {
+      var el = document.querySelector('#navigation > [data-id="2"]')
+      if (result.history) {
+         el.classList.remove('disabled')
+         el.removeAttribute('title')
+      } else {
+         if (el.classList.contains('disabled')) {
+            var title = result.error && result.error.toLowerCase() == 'unauthorized' ? 'You need to authorize first' : 'You need to select profile first'
+            el.setAttribute('title', title)
+         }
+      }
    }
    
    function hideItem(item) {
@@ -232,6 +258,7 @@ window.addEventListener("DOMContentLoaded", function() {
    }
    
    extension.sendMessage({ operation: 'getRemoveHistory' }, function(result) {
+      if (result) updateNavigation(result)
       if (result && result.history && result.history.length) {
          var list = document.getElementById('remove_history')
          list.innerHTML = ''

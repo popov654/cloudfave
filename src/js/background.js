@@ -150,6 +150,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          browser.storage.local.set({ profileId: request.data.id }, function() {
             getProfileName().then(() => sendResponse({ name: profileName }))
          })
+         updateOptionsPage()
       }
       else if (request.operation == 'setParameter') {
          setParameter(request.data)
@@ -175,6 +176,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
                   sendResponse(res.profileId)
                })
+               updateOptionsPage()
             }
          })
       }
@@ -203,6 +205,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             browser.storage.local.set({ profile_id: request.data.id, snapshot: result.data, last_sync: lastSync }, async function() {
                getProfileName().then(() => sendResponse({ id: profileId, name: profileName }))
             })
+            updateOptionsPage()
          })
       }
       else if (request.operation == 'getRemoveHistory') {
@@ -277,6 +280,7 @@ async function logout() {
    profileId = null
    ignoredFolders = null
    browser.storage.local.set({ access_token: accessToken, profile_id: profileId, ignored_folders: ignoredFolders })
+   updateOptionsPage()
 }
 
 async function register(username, password) {
@@ -323,6 +327,7 @@ async function doAuth(username, password, secure, callback) {
          var result = await res.json()
          accessToken = result.token
          browser.storage.local.set({ access_token: accessToken })
+         updateOptionsPage()
       }
       return { status: res.status, message: result.message, error: result.error }
    } catch (e) {
@@ -330,6 +335,18 @@ async function doAuth(username, password, secure, callback) {
       console.log(e)
       return res
    }
+}
+
+function updateOptionsPage() {
+   var url = browser.runtime.getURL('options.html')
+   browser.tabs.query({ url: url }, function(tabs) {
+      if (browser.runtime.lastError) console.error(browser.runtime.lastError)
+      for (var i = 0; i < tabs.length; i++) {
+         if (tabs[i].url == url) {
+            browser.tabs.reload(tabs[i].id)
+         }
+      }
+   })
 }
 
 async function loadProfilesList() {
