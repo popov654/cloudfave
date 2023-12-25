@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "CloudFave",
   "description": "Syncs all you bookmarks across devices",
-  "version": "1.0.0",
+  "version": "1.1.0",
 
   "icons": {
       "128": "icons/icon128.png",
@@ -23,6 +23,11 @@
       "js": [ "js/oauth_inject.js" ]
     }
   ],
+  "options_page": "options.html",
+  "options_ui": {
+      "open_in_tab": true,
+      "page": "options.html"
+  },
   "permissions": [
     "storage",
     "bookmarks",

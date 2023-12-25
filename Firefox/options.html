@@ -6,7 +6,7 @@
     <link rel="shortcut icon" href="icons/icon64.png">
     <style type="text/css">
         body { background: #4f7bae; font-family: Roboto, Open Sans, Tahoma; font-size: 13px; min-width: 338px; padding: 14px; overflow: hidden; }
-        .wrapper { background: #fff; min-height: 400px; font-size: 15px; border: 1px solid #ccc; border-radius: 3px; }
+        .wrapper { background: #fff; color: #999; min-height: 400px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
         .wrapper > div.hidden {
            display: none;
            opacity: 0;
@@ -24,6 +24,9 @@
            padding: 4px 6px;
            border: 1px solid #ccc;
            border-radius: 4px;
+        }
+        a:not(.link):visited {
+           color: #7b4db4;
         }
         .link {
            display: inline-block;
@@ -156,10 +159,6 @@
            outline-color: #0cf;
         }
         
-        #startScreen {
-           text-align: left;
-           font-size: 15px;
-        }
         #newProfileName {
            width: 250px;
            box-sizing: border-box;
@@ -376,6 +375,143 @@
         #logout.hidden {
            display: none;
         }
+        
+        .wrapper {
+           display: flex;
+           padding: 18px;
+        }
+        #navigation {
+           flex: 0 0 230px;
+           height: calc(100vh - 100px);
+           padding: 0px;
+           text-align: left;
+           margin-left: 28px;
+           margin-top: 32px;
+           border-right: 1px solid #eee;
+        }
+        #navigation .nav {
+           position: relative;
+           font-size: 17px;
+           color: #aaa;
+           padding: 6px 12px 6px 20px;
+           cursor: pointer;
+        }
+        #navigation .nav.active {
+           background: #f3f8f9;
+           color: #869fc5;
+        }
+        #navigation .nav.active::before {
+           display: block;
+           content: '';
+           position: absolute;
+           top: 0;
+           left: 0;
+           width: 2px;
+           height: 100%;
+           background: #97c1e0;
+        }
+        #navigation .nav:hover {
+           background: #f5f5f5;
+        }
+        #content {
+           box-sizing: border-box;
+           text-align: left;
+           padding: 30px 34px 30px 40px;
+        }
+        #sync_interval {
+           width: 36px;
+           margin: 0px 10px;
+        }
+        input[type="checkbox"] {
+           display: none;
+        }
+        input[type="checkbox"] + label {
+           margin: 0px 10px;
+           display: inline-block;
+           position: relative;
+           top: 1px;
+           width: 26px;
+           height: 10px;
+           background-color: #b3b3b3;
+           border: 1px solid #a8a8a8;
+           box-shadow: inset 0px 0px 3px 1px rgba(56, 56, 56, 0.14);
+           border-radius: 6px;
+           cursor: pointer;
+           transition: background-color 0.1s linear 0.18s, border-color 0.1s linear 0.18s;
+        }
+        input[type="checkbox"] + label::before {
+           display: block;
+           content: '';
+           position: absolute;
+           left: -3px;
+           top: -3px;
+           width: 14px;
+           height: 14px;
+           background: #efefef;
+           border: 1px solid #eaeaec;
+           border-radius: 8px;
+           transition: left 0.2s linear;
+        }
+        input[type="checkbox"]:checked + label {
+           background-color: #6492c7;
+           border: 1px solid #658bb8;
+        }
+        input[type="checkbox"]:checked + label::before {
+           left: 14px;
+        }
+        #remove_history {
+           margin-top: 18px;
+           overflow-x: hidden;
+           overflow-y: auto;
+           max-height: calc(100vh - 160px);
+        }
+        #remove_history > .item {
+           display: flex;
+           box-sizing: border-box;
+           padding: 3px 10px 2px 5px;
+           position: relative;
+           white-space: nowrap;
+           transition: opacity 0.4s linear;
+        }
+        #remove_history > .item > * {
+           vertical-align: top;
+        }
+        #remove_history > .item:hover {
+           background: #f3f8f9;
+        }
+        #remove_history > .item > :first-child {
+           display: inline-block;
+           /* width: 180px; */
+           flex: 1 1 180px;
+           overflow: hidden;
+           text-overflow: ellipsis;
+           margin-top: 2px;
+           margin-left: 0px;
+        }
+        #remove_history > .item > * {
+           /* margin-left: 30px; */
+           display: inline-block;
+           vertical-align: top;
+           line-height: 16.5px;
+           margin-top: 3px;
+           overflow: hidden;
+           text-overflow: ellipsis;
+        }
+        #remove_history > .item > :nth-child(2) {
+           /* width: calc(100% - 320px); */
+           flex: 1 1 auto;
+           border: none;
+        }
+        #remove_history > .item > :nth-child(2) > a {
+           max-width: 100%;
+           overflow: hidden;
+           text-overflow: ellipsis;
+           border: none;
+        }
+        #remove_history > .item > *:last-child {
+           flex: 0 0 90px;
+           text-align: right;
+        }
 
         @keyframes rotation {
            0% {
@@ -399,72 +535,31 @@
         }
     </style>
     <script src="js/xscroll.js"></script>
-    <script src="js/popup.js"></script>
+    <script src="js/options.js"></script>
 </head>
 <body>
 <div class="wrapper" style="text-align: center">
-   <div id="loginScreen">
-      <form id="loginForm">
-         <div class="line"><div style="width: 100%; height: 80px; background: url('img/logo.png') center center no-repeat; background-size: contain"></div></div>
-         <div class="line"><input type="text" name="username" id="username" placeholder="E-mail" /></div>
-         <div class="line"><input type="password" name="password" id="password" placeholder="Password" /><div id="passToggle" class="toggle"></div></div>
-         <div class="line"><center><button>Sign In</button></center></div>
-         <div style="margin: 34px 0px 10px; text-align: center"><span class="link" id="registerLink">Create new account</span></div>
-         <div style="margin: 20px 0px 10px; text-align: center"><button id="google_signin" style="margin: 0px auto; width: 176px; height: 30px; font-size: 13px; background-color: #232323; border-radius: 7px; display: flex; align-items: center; justify-content: center"><img src="img/google_icon.png" width="24" style="margin-right: 3px" /><span>Sign In with Google</span></a></div>
-         <div id="loginError">Invalid username or password</div>
-      </form>
+   <div id="navigation">
+      <div class="nav active" data-id="1">General</div>
+      <div class="nav" data-id="2">Restore</div>
    </div>
-   <div id="startScreen" class="hidden">
-      <div class="line"><input type="radio" name="profileChooser" id="createNewProfile" checked /><label for="createNewProfile">
-         <span>Create new profile</span>
-         <div><input type="text" id="newProfileName" placeholder="Enter name here" /></div>
-      </label></div>
-      <div class="line"><input type="radio" name="profileChooser" id="selectExistingProfile" /><label for="selectExistingProfile">
-         <span>Select existing profile</span>
-         <div class="select" id="profilesList">
-            <div class="header"></div>
-            <div class="list scrollable scroll_y" button-size="1" scroll-delta="20" thumb-length="50" thumb-width="5">
-               <div class="item profile" data-id="1">
-                  <div class="title">Main profile</div>
-                  <div class="created_at">Created at 27 Sep 2023, 16:45</div>
-               </div>
-               <div class="item profile" data-id="2">
-                  <div class="title">Test</div>
-                  <div class="created_at">Created at 28 Sep 2023, 12:14</div>
-               </div>
-               <div class="item profile" data-id="3">
-                  <div class="title">Test 2</div>
-                  <div class="created_at">Created at 28 Sep 2023, 12:37</div>
-               </div>
-            </div>
-         </div>
-         <div style="padding: 3px 3px 12px"><input type="checkbox" id="mergeExistingData" /><label for="mergeExistingData">Merge existing data</label></div>
-      </label></div>
-      <div class="line bottom-fixed"><center><button id="nextButton">Next</button></center></div>
-   </div>
-   <div id="selectFoldersScreen" class="hidden">
-      <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
-         <div style="box-sizing: border-box; width: 100%; padding: 4px 10px 0px; text-align: left">Select folders to sync</div>
-         <div class="folders_container scrollable scroll_y" id="folderTree" button-size="1" scroll-delta="20" thumb-length="50" thumb-width="5"></div>
-         <div class="extra_links" style="width: calc(100% - 24px); padding: 8px 12px 4px"><span class="link" style="float: left">Select All</span><span class="link" style="float: right">Select None</span></div>
-         <div class="line bottom-fixed"><center><button id="nextButton2">Next</button></center></div>
+   <div id="content">
+      <div data-id="1">
+         <div class="line">Enable background sync <input type="checkbox" id="sync_enabled" checked /><label for="sync_enabled"></label></div>
+         <div class="line">Background sync interval: <input type="number" id="sync_interval" value="5" min="5" max="360" /> minutes</div>
       </div>
-   </div>
-   <div id="mainScreen" style="height: 180px" class="hidden">
-      <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center">
-         <div class="container">
-            <div style="position: relative; font-size: 17px; color: #57595c">Active profile: <span id="activeProfile">Main profile</span><input type="text" id="profileEditName" style="display: none; width: 110px; margin-right: 4px; height: 18px; font-size: 16px;" value="Main profile" /><button id="nameEditBtn"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#bdbdc3" version="1.1" id="Capa_1" width="15px" height="15px" viewBox="0 0 528.899 528.899" xml:space="preserve"><g><path d="M328.883,89.125l107.59,107.589l-272.34,272.34L56.604,361.465L328.883,89.125z M518.113,63.177l-47.981-47.981   c-18.543-18.543-48.653-18.543-67.259,0l-45.961,45.961l107.59,107.59l53.611-53.611   C532.495,100.753,532.495,77.559,518.113,63.177z M0.3,512.69c-1.958,8.812,5.998,16.708,14.811,14.565l119.891-29.069   L27.473,390.597L0.3,512.69z"/></g></svg></button></div>
-            <div style="color: #aaa; margin: 8px 0px 14px">Last synced <span id="lastSyncTime">5 minutes ago</span></div>
-            <div class="line"><center><button id="syncButton">Sync Now</button></center></div>
+      <div data-id="2" style="display: none">
+         <div style="margin-top: 6px">Removed bookmarks:</div>
+         <div id="remove_history">
+            <div style="font-style: italic">Nothing found</div>
          </div>
       </div>
+      <div id="loaderWrap"><div class="loader" style="display: none"></div></div>
    </div>
    <div id="errorScreen" class="hidden">
       <div class="image"></div>
       <div class="error">Connection problem</div>
    </div>
-   <div id="loaderWrap"><div class="loader" style="display: none"></div></div>
-   <div id="logout" class="hidden"><a class="link solid" id="logoutLink">Logout</a></div>
 </div>
 </body>
 </html>

@@ -12,6 +12,7 @@ var profiles = []
 var ignoredFolders = null
 
 var lastSync = s.lastSync || 0;
+var syncEnabled = true;
 var syncInterval = s.syncInterval || 300000;
    
 var browser = browser || chrome
@@ -33,16 +34,18 @@ window.addEventListener("load", function(){
 }, false);
 
 function loadUserConfig(callback) {
-   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_sync', 'sync_interval'], function(result) {
+   browser.storage.local.get(['access_token', 'profile_id', 'ignored_folders', 'last_sync', 'sync_enabled', 'sync_interval'], function(result) {
       accessToken = result.access_token || null
       profileId = result.profile_id || null
       ignoredFolders = result.ignored_folders || null
       lastSync = result.last_sync || 0
+      syncEnabled = !(result.sync_enabled === false)
       syncInterval = result.sync_interval || 300000
       s.accessToken = accessToken
       s.profileId = profileId
       s.ignoredFolders = JSON.stringify(ignoredFolders)
       s.lastSync = lastSync
+      s.syncEnabled = syncEnabled
       s.syncInterval = syncInterval
       
       if (callback) callback()
@@ -88,6 +91,28 @@ function getProfileName(callback) {
    xhr.send(null)
 }
 
+function setParameter(data) {
+   switch (data.name) {
+      case 'sync_enabled':
+         if (data.value && !timer) {
+            timer = setInterval(() => sync().catch(e => { console.log(e) }), syncInterval)
+         } else if (!data.value && timer) {
+            clearInterval(timer)
+            timer = null
+         }
+         syncEnabled = s.syncEnabled = !!data.value
+         browser.storage.local.set({ sync_enabled: syncEnabled })
+         break
+      case 'sync_interval':
+         var interval = parseInt(data.value)
+         if (!isNaN(interval)) {
+            syncInterval = s.syncInterval = Math.max(5, Math.floor(interval)) * 60000
+            browser.storage.local.set({ sync_interval: syncInterval })
+         }
+         break
+   }
+}
+
 extension.onMessage.addListener(function(request, sender, sendResponse) {
    if (request.operation == 'getUIScreen') {
       var result = accessToken == null ? 0 : (profileId == null ? 1 : (!ignoredFolders ? 2 : 3))
@@ -104,8 +129,8 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          })
       })
    }
-   else if (request.operation == 'update') {
-      updateUserConfig(request.data)
+   else if (request.operation == 'setParameter') {
+      setParameter(request.data)
    }
    else if (request.operation == 'authorize') {
       authorize(request.data.username, request.data.password, false, sendResponse)
@@ -160,6 +185,22 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             })
          })
       })
+   }
+   else if (request.operation == 'getRemoveHistory') {
+      fetch(origin + '/' + profileId + '/removed-items', {
+         method: 'GET',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer: ' + accessToken
+         }
+      })
+      .then(response => response.json())
+      .then(response => {
+         sendResponse(response)
+      })
+   }
+   else if (request.operation == 'restoreBookmark') {
+      restoreBookmark(request.data, sendResponse)
    }
    else if (request.operation == 'getProfiles') {
       getProfiles(function(result) {
@@ -353,6 +394,58 @@ function renameProfile(name, callback) {
       if (callback) callback(result)
    }
    xhr.send(JSON.stringify({ value: name }))
+}
+
+function restoreBookmark(data, callback) {
+   browser.storage.local.get(['snapshot'], function(res) {
+      if (res.snapshot && data.url && data.path && data.details && data.details.title) {
+         
+         var path = data.path.slice()
+         
+         var list = res.snapshot[0].children
+         
+         var error = false, parent_id = '0'
+         
+         while (path.length && list) {
+            var el = list.find(el => el.title == path[0])
+            if (!el) {
+               error = true
+               break
+            }
+            parent_id = el.id
+            path = path.slice(1)
+            list = el.children
+         }
+         
+         if (error) {
+            callback(false)
+         }
+         
+         var exists = list.find(el => el.url == data.url)
+      
+         if (!exists) {
+            browser.bookmarks.create(
+               {
+                  parentId: parent_id,
+                  title: data.details.title,
+                  url: data.url
+               },
+               function(bookmark) {
+                  if (bookmark) {
+                     sendUpdates([{ action: 'add', url: data.url, path: data.path, details: data.details }])
+                     .then(() => {
+                        lastSync = s.lastSync = Date.now()
+                        callback(true)
+                     })
+                  } else {
+                     callback(false)
+                  }
+               }
+            );
+         }
+      }
+   })
+   
 }
 
 function importData(data, callback) {
@@ -863,7 +956,7 @@ function getFullPath(parentId, tree) {
    })
 }
 
-var timer = setInterval(() => sync().catch(e => { console.log(e) }), syncInterval)
+var timer = syncEnabled ? setInterval(() => sync().catch(e => { console.log(e) }), syncInterval) : null
 
 var changesToSend = []
 var syncing = false
