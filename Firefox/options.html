@@ -392,9 +392,13 @@
         #navigation .nav {
            position: relative;
            font-size: 17px;
-           color: #aaa;
+           color: #787377;
            padding: 6px 12px 6px 20px;
            cursor: pointer;
+        }
+        #navigation .nav.disabled {
+           color: #aaa;
+           cursor: not-allowed;
         }
         #navigation .nav.active {
            background: #f3f8f9;
@@ -410,7 +414,7 @@
            height: 100%;
            background: #97c1e0;
         }
-        #navigation .nav:hover {
+        #navigation .nav:not(.disabled):hover {
            background: #f5f5f5;
         }
         #content {
@@ -481,7 +485,6 @@
         }
         #remove_history > .item > :first-child {
            display: inline-block;
-           /* width: 180px; */
            flex: 1 1 180px;
            overflow: hidden;
            text-overflow: ellipsis;
@@ -489,7 +492,6 @@
            margin-left: 0px;
         }
         #remove_history > .item > * {
-           /* margin-left: 30px; */
            display: inline-block;
            vertical-align: top;
            line-height: 16.5px;
@@ -498,7 +500,6 @@
            text-overflow: ellipsis;
         }
         #remove_history > .item > :nth-child(2) {
-           /* width: calc(100% - 320px); */
            flex: 1 1 auto;
            border: none;
         }
@@ -541,7 +542,7 @@
 <div class="wrapper" style="text-align: center">
    <div id="navigation">
       <div class="nav active" data-id="1">General</div>
-      <div class="nav" data-id="2">Restore</div>
+      <div class="nav disabled" data-id="2">Restore</div>
    </div>
    <div id="content">
       <div data-id="1">

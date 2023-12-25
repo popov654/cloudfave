@@ -30,6 +30,7 @@
   },
   "permissions": [
     "storage",
+    "tabs",
     "bookmarks",
     "*://localhost/*",
     "*://cloudfave.ext.io/*",

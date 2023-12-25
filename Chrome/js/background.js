@@ -128,6 +128,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             sendResponse({ id: profileId, name: s.profileName })
          })
       })
+      updateOptionsPage()
    }
    else if (request.operation == 'setParameter') {
       setParameter(request.data)
@@ -153,6 +154,7 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                browser.storage.local.set({ profile_id: res.profileId, snapshot: result, last_sync: lastSync }, function() {
                   sendResponse(res.profileId)
                })
+               updateOptionsPage()
             }
          })
       })
@@ -184,9 +186,13 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                sendResponse({ id: profileId, name: s.profileName })
             })
          })
+         updateOptionsPage()
       })
    }
    else if (request.operation == 'getRemoveHistory') {
+      if (accessToken && !profileId) {
+         sendResponse({ error: 'Profile is not selected' })
+      }
       fetch(origin + '/' + profileId + '/removed-items', {
          method: 'GET',
          headers: {
@@ -254,6 +260,7 @@ function logout(callback) {
       profileId = s.profileId = null
       ignoredFolders = s.ignoredFolders = null
       browser.storage.local.set({ access_token: accessToken, profile_id: profileId, ignored_folders: ignoredFolders })
+      updateOptionsPage()
       if (callback) callback()
    }
    xhr.send(null)
@@ -279,6 +286,7 @@ function register(username, password, callback) {
    }
    xhr.send(JSON.stringify({ username, password }))
 }
+
 function authorize(username, password, secure, callback) {
    if (!username || !username.length || !password || !password.length) {
       return
@@ -301,6 +309,7 @@ function doAuth(username, password, secure, callback) {
          accessToken = JSON.parse(this.responseText).token
          browser.storage.local.set({ access_token: accessToken })
          s.accessToken = accessToken
+         updateOptionsPage()
       }
       if (callback) callback(this.status == 200)
    }
@@ -308,6 +317,18 @@ function doAuth(username, password, secure, callback) {
       if (callback) callback(null)
    }
    xhr.send(JSON.stringify({ username, password }))
+}
+
+function updateOptionsPage() {
+   var url = browser.runtime.getURL('options.html')
+   browser.tabs.query({ url: url }, function(tabs) {
+      if (browser.runtime.lastError) console.error(browser.runtime.lastError)
+      for (var i = 0; i < tabs.length; i++) {
+         if (tabs[i].url == url) {
+            browser.tabs.reload(tabs[i].id)
+         }
+      }
+   })
 }
 
 function loadProfilesList(callback) {
