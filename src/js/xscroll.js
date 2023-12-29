@@ -512,7 +512,7 @@ XScroll.init = function(el, force) {
    
    var st = el.currentStyle || getComputedStyle(el, '')
    
-   if (el.force_scroll_x === undefined && el.getAttribute('xscroll-allow-async') !== null) {
+   if (el.force_scroll_x === undefined && el.getAttribute('xscroll-allow-async')) {
       XScroll.private.checkOverflow(el, c, st)
       setTimeout(function() { XScroll.init(el, force) }, 130)
       return
@@ -571,11 +571,13 @@ XScroll.init = function(el, force) {
             var st2 = el2.currentStyle ? el2.currentStyle : getComputedStyle(el2, '')
             w = st2.width
             if (w == 'auto' && st2.position == 'absolute' && st2.left != 'auto' && st2.right != 'auto' || el2.clientWidth > 0) {
-               w = el2.clientWidth
+               w = parseInt(el2.clientWidth - parseInt(st2.paddingLeft) - parseInt(st2.paddingRight))
             }
             el2 = el2.parentNode
          }
-      } else w = parseInt(st.width)
+      } else {
+         w = parseInt(st.width - parseInt(st.paddingLeft) - parseInt(st.paddingRight))
+      }
       if (w > 0) {
          var sizing = (st['boxSizing']) ? st['boxSizing'] : st['box-sizing']
          if (sizing == 'content-box') {
@@ -656,16 +658,6 @@ XScroll.init = function(el, force) {
       from.style.lineHeight = st['lineHeight'] || st['line-height']
       to.style.whiteSpace = st['whiteSpace'] || st['white-space']
 
-      if (st.margin != '') {
-         to.style.margin = st.margin
-      } else {
-         to.style.marginTop = st['marginTop'] || st['margin-top']
-         to.style.marginLeft = st['marginLeft'] || st['margin-left']
-         to.style.marginRight = st['marginRight'] || st['margin-right']
-         to.style.marginBottom = st['marginBottom'] || st['margin-bottom']
-      }
-      from.style.margin = '0px'
-
       var padding = st.padding
       if (st.padding == '' &&
           (st.paddingRight != '' || st.paddingRight != '' ||
@@ -736,11 +728,6 @@ XScroll.init = function(el, force) {
    if (c.style.whiteSpace == 'nowrap' && !XScroll.hasXScroll(el)) {
       el.className += ' scroll_x'
    }
-   
-   setTimeout(function() {
-      if (XScroll.hasXScroll(el)) XScroll.private.updateThumbXPosition(el)
-      if (XScroll.hasYScroll(el)) XScroll.private.updateThumbYPosition(el)
-   }, 0)
    
    addEventHandler(el, 'scroll', function() {
       this.floatPositionX = this.scrollWidth > 0 ? this.scrollLeft / this.scrollWidth : 0
