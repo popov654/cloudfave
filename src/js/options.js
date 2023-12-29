@@ -200,6 +200,10 @@ window.addEventListener("DOMContentLoaded", function() {
                   blocks[i].style.display = 'none'
                }
             }
+            setTimeout(function() {
+               var els = document.querySelectorAll('.scrollable')
+               Array.prototype.forEach.call(els, XScroll.updateThumbPosition.bind(XScroll))
+            }, 0)
          }
       }
    }
@@ -309,6 +313,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   })
                }
             })
+            XScroll.init(list)
          }
       })
    }

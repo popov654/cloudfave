@@ -3,7 +3,7 @@
   "name": "CloudFave",
   "description": "Syncs all you bookmarks across devices",
   
-  "version": "1.1.0",
+  "version": "1.1.1",
 
   "icons": {
       "128": "icons/icon128.png",
