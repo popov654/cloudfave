@@ -10,6 +10,7 @@ var profiles = []
 var ignoredFolders = null
 
 var lastSync = 0;
+var syncEnabled = true;
 var syncInterval = 300000;
 
 var profileName = ''
@@ -104,6 +105,36 @@ async function getProfileName() {
    }
 }
 
+function setParameter(data) {
+   switch (data.name) {
+      case 'sync_enabled':
+         if (browser.alarms) {
+            if (data.value) {
+               browser.alarms.clear('timer', () => {
+                  browser.alarms.create('timer', { periodInMinutes: Math.max(5, syncInterval / 60000) })
+               })
+            } else {
+               browser.alarms.clear('timer')
+            }
+         }
+         syncEnabled = !!data.value
+         browser.storage.local.set({ sync_enabled: syncEnabled })
+         break
+      case 'sync_interval':
+         var interval = parseInt(data.value)
+         if (!isNaN(interval)) {
+            syncInterval = Math.max(5, Math.floor(interval)) * 60000
+            browser.storage.local.set({ sync_interval: syncInterval })
+            if (browser.alarms) {
+               browser.alarms.clear('timer', () => {
+                  browser.alarms.create('timer', { periodInMinutes: Math.max(5, syncInterval / 60000) })
+               })
+            }
+         }
+         break
+   }
+}
+
 extension.onMessage.addListener(function(request, sender, sendResponse) {
    loadUserConfig(function() {
    
@@ -120,8 +151,8 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
             getProfileName().then(() => sendResponse({ name: profileName }))
          })
       }
-      else if (request.operation == 'update') {
-         updateUserConfig(request.data)
+      else if (request.operation == 'setParameter') {
+         setParameter(request.data)
       }
       else if (request.operation == 'authorize') {
          authorize(request.data.username, request.data.password, false).then(res => sendResponse(res))
@@ -173,6 +204,22 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                getProfileName().then(() => sendResponse({ id: profileId, name: profileName }))
             })
          })
+      }
+      else if (request.operation == 'getRemoveHistory') {
+         fetch(origin + '/' + profileId + '/removed-items', {
+            method: 'GET',
+            headers: {
+               'Content-Type': 'application/json',
+               'Authorization': 'Bearer: ' + accessToken
+            }
+         })
+         .then(response => response.json())
+         .then(response => {
+            sendResponse(response)
+         })
+      }
+      else if (request.operation == 'restoreBookmark') {
+         restoreBookmark(request.data, sendResponse)
       }
       else if (request.operation == 'getProfiles') {
          getProfiles().then(res => sendResponse(res))
@@ -363,6 +410,57 @@ async function renameProfile(name) {
    } catch (e) {
       return null
    }
+}
+
+function restoreBookmark(data, callback) {
+   browser.storage.local.get(['snapshot'], function(res) {
+      if (res.snapshot && data.url && data.path && data.details && data.details.title) {
+         
+         var path = data.path.slice()
+         
+         var list = res.snapshot[0].children
+         
+         var error = false, parent_id = '0'
+         
+         while (path.length && list) {
+            var el = list.find(el => el.title == path[0])
+            if (!el) {
+               error = true
+               break
+            }
+            parent_id = el.id
+            path = path.slice(1)
+            list = el.children
+         }
+         
+         if (error) {
+            callback(false)
+         }
+         
+         var exists = list.find(el => el.url == data.url)
+      
+         if (!exists) {
+            browser.bookmarks.create(
+               {
+                  parentId: parent_id,
+                  title: data.details.title,
+                  url: data.url
+               },
+               function(bookmark) {
+                  if (bookmark) {
+                     sendUpdates([{ action: 'add', url: data.url, path: data.path, details: data.details }])
+                     .then(() => {
+                        lastSync = s.lastSync = Date.now()
+                        callback(true)
+                     })
+                  } else {
+                     callback(false)
+                  }
+               }
+            );
+         }
+      }
+   })
 }
 
 function importData(data, callback) {
