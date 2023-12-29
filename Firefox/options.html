@@ -469,21 +469,21 @@
            overflow-y: auto;
            max-height: calc(100vh - 160px);
         }
-        #remove_history > .item {
+        #remove_history .item {
            display: flex;
            box-sizing: border-box;
-           padding: 3px 10px 2px 5px;
+           padding: 3px 13px 2px 5px;
            position: relative;
            white-space: nowrap;
            transition: opacity 0.4s linear;
         }
-        #remove_history > .item > * {
+        #remove_history .item > * {
            vertical-align: top;
         }
-        #remove_history > .item:hover {
+        #remove_history .item:hover {
            background: #f3f8f9;
         }
-        #remove_history > .item > :first-child {
+        #remove_history .item > :first-child {
            display: inline-block;
            flex: 1 1 180px;
            overflow: hidden;
@@ -491,7 +491,7 @@
            margin-top: 2px;
            margin-left: 0px;
         }
-        #remove_history > .item > * {
+        #remove_history .item > * {
            display: inline-block;
            vertical-align: top;
            line-height: 16.5px;
@@ -499,17 +499,17 @@
            overflow: hidden;
            text-overflow: ellipsis;
         }
-        #remove_history > .item > :nth-child(2) {
+        #remove_history .item > :nth-child(2) {
            flex: 1 1 auto;
            border: none;
         }
-        #remove_history > .item > :nth-child(2) > a {
+        #remove_history .item > :nth-child(2) > a {
            max-width: 100%;
            overflow: hidden;
            text-overflow: ellipsis;
            border: none;
         }
-        #remove_history > .item > *:last-child {
+        #remove_history .item > *:last-child {
            flex: 0 0 90px;
            text-align: right;
         }
@@ -551,7 +551,7 @@
       </div>
       <div data-id="2" style="display: none">
          <div style="margin-top: 6px">Removed bookmarks:</div>
-         <div id="remove_history">
+         <div id="remove_history" class="scrollable scroll_y" button-size="1" scroll-delta="15" thumb-length="150" thumb-width="5">
             <div style="font-style: italic">Nothing found</div>
          </div>
       </div>
