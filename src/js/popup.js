@@ -131,7 +131,6 @@ window.addEventListener("DOMContentLoaded", function() {
    })
    
    function loadProfiles(profiles) {
-      console.log(profiles)
       var list = document.getElementById('profilesList').children[1]
       list.innerHTML = ''
       var offset = new Date().getTimezoneOffset() * 60 * 1000
