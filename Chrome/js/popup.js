@@ -137,7 +137,6 @@ window.addEventListener("DOMContentLoaded", function() {
    })
    
    function loadProfiles() {
-      console.log(localStorage.profiles)
       var profiles = JSON.parse(localStorage.profiles)
       var list = document.getElementById('profilesList').children[1]
       list.innerHTML = ''

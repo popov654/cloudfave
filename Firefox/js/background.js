@@ -232,11 +232,22 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       })
    }
    else if (request.operation == 'getFolderTree') {
-      loadDirectoryTree(profileId, function(result) {
+      var profile_id = request.data.profileId != '' ? request.data.profileId : profileId
+      loadDirectoryTree(profile_id, function(result) {
          if (!result) {
             sendResponse(null)
          } else {
             sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
+         }
+      })
+   }
+   else if (request.operation == 'getFolderItems') {
+      var profile_id = request.data.profileId != '' ? request.data.profileId : profileId
+      loadFolderItems(profile_id, request.data.path || [], function(result) {
+         if (!result) {
+            sendResponse(null)
+         } else {
+            sendResponse(result)
          }
       })
    }
@@ -346,7 +357,7 @@ function updateOptionsPage() {
             browser.tabs.reload(tabs[i].id)
          }
       }
-    });
+   })
 }
 
 function loadProfilesList(callback) {
@@ -383,13 +394,27 @@ function loadDirectoryTree(profile_id, callback) {
    xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
    xhr.onload = function() {
       var result = JSON.parse(this.response)
-      console.log(result)
       callback(result)
    }
    xhr.onerror = function() {
       if (callback) callback(0)
    }
    xhr.send(null)
+}
+
+function loadFolderItems(profile_id, path, callback) {
+   var xhr = new XMLHttpRequest()
+   xhr.open('POST', origin + '/' + profile_id + '/items', true)
+   xhr.setRequestHeader('Content-Type', 'application/json')
+   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
+   xhr.onload = function() {
+      var result = JSON.parse(this.response)
+      callback(result)
+   }
+   xhr.onerror = function() {
+      if (callback) callback(0)
+   }
+   xhr.send(JSON.stringify({ path }))
 }
 
 function mergeData(profile_id, data, callback) {

@@ -76,6 +76,29 @@ function getProfiles(callback) {
    xhr.send(null)
 }
 
+function updateProfileName(id, name) {
+   for (var profile of profiles) {
+      if (profile.id == id) {
+         profile.name = name
+      }
+   }
+   s.profiles = JSON.stringify(profiles)
+   if (id == profileId) s.profileName = name
+}
+
+function removeProfile(id) {
+   for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id == id) {
+         profiles.splice(i--, 1)
+      }
+      if (profileId == id) {
+         profileId = profiles[i].id
+         s.profileName = profiles[i].name
+      }
+   }
+   s.profiles = JSON.stringify(profiles)
+}
+
 function getProfileName(callback) {
    if (!accessToken || !profileId) return
    var xhr = new XMLHttpRequest()
@@ -160,7 +183,12 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       })
    }
    else if (request.operation == 'renameProfile') {
-      renameProfile(request.data.value)
+      var profile_id = request.data.profileId || profileId
+      renameProfile(profile_id, request.data.value, sendResponse)
+   }
+   else if (request.operation == 'deleteProfile') {
+      var profile_id = request.data.profileId || profileId
+      deleteProfile(profile_id, sendResponse)
    }
    else if (request.operation == 'loadProfile') {
       var onFinish = function(result) {
@@ -214,11 +242,22 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
       })
    }
    else if (request.operation == 'getFolderTree') {
-      loadDirectoryTree(profileId, function(result) {
+      var profile_id = request.data.profileId ? request.data.profileId : profileId
+      loadDirectoryTree(profile_id, function(result) {
          if (!result) {
             sendResponse(null)
          } else {
             sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
+         }
+      })
+   }
+   else if (request.operation == 'getFolderItems') {
+      var profile_id = request.data.profileId ? request.data.profileId : profileId
+      loadFolderItems(profile_id, request.data.path || [], function(result) {
+         if (!result) {
+            sendResponse(null)
+         } else {
+            sendResponse(result)
          }
       })
    }
@@ -365,13 +404,27 @@ function loadDirectoryTree(profile_id, callback) {
    xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
    xhr.onload = function() {
       var result = JSON.parse(this.response)
-      console.log(result)
       callback(result)
    }
    xhr.onerror = function() {
       if (callback) callback(0)
    }
    xhr.send(null)
+}
+
+function loadFolderItems(profile_id, path, callback) {
+   var xhr = new XMLHttpRequest()
+   xhr.open('POST', origin + '/' + profile_id + '/items', true)
+   xhr.setRequestHeader('Content-Type', 'application/json')
+   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
+   xhr.onload = function() {
+      var result = JSON.parse(this.response)
+      callback(result)
+   }
+   xhr.onerror = function() {
+      if (callback) callback(0)
+   }
+   xhr.send(JSON.stringify({ path }))
 }
 
 function mergeData(profile_id, data, callback) {
@@ -402,19 +455,36 @@ function createProfile(name, data, callback) {
    xhr.send(JSON.stringify({ name, data }))
 }
 
-function renameProfile(name, callback) {
+function renameProfile(profile_id, name, callback) {
    var xhr = new XMLHttpRequest()
-   xhr.open('POST', origin + '/' + profileId + '/rename', true)
+   xhr.open('POST', origin + '/' + profile_id + '/rename', true)
    xhr.setRequestHeader('Content-Type', 'application/json')
    xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
    xhr.onload = function() {
       var result = JSON.parse(this.response)
+      updateProfileName(profile_id, name)
       if (callback) callback(result)
    }
    xhr.onerror = function() {
       if (callback) callback(result)
    }
    xhr.send(JSON.stringify({ value: name }))
+}
+
+function deleteProfile(profile_id, callback) {
+   var xhr = new XMLHttpRequest()
+   xhr.open('POST', origin + '/' + profile_id + '/delete', true)
+   xhr.setRequestHeader('Content-Type', 'application/json')
+   xhr.setRequestHeader('Authorization', 'Bearer: ' + accessToken)
+   xhr.onload = function() {
+      var result = JSON.parse(this.response)
+      removeProfile(profile_id)
+      if (callback) callback(result)
+   }
+   xhr.onerror = function() {
+      if (callback) callback(result)
+   }
+   xhr.send(JSON.stringify({}))
 }
 
 function restoreBookmark(data, callback) {
