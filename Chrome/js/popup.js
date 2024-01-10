@@ -137,7 +137,6 @@ window.addEventListener("DOMContentLoaded", function() {
    })
    
    function loadProfiles() {
-      console.log(localStorage.profiles)
       var profiles = JSON.parse(localStorage.profiles)
       var list = document.getElementById('profilesList').children[1]
       list.innerHTML = ''
@@ -708,7 +707,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   clearTimeout(timer)
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('loginScreen').classList.remove('hidden')
-               } else if (result == null) {
+               } else if (result === null) {
                   removeLoader(document.getElementById('folderTree'))
                   localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)

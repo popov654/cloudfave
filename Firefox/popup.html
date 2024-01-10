@@ -197,6 +197,9 @@
            padding: 3px 5px;
            border-radius: 3px;
         }
+        .profile .title {
+           min-height: 20px;
+        }
         .list {
            background: #fff;
            opacity: 0;
@@ -214,6 +217,7 @@
         .list.visible {
            opacity: 1;
            top: 0px;
+           transition: opacity linear 0.2s 0.1s, top linear 0.2s 0.1s;
         }
         .list .profile:hover {
            background: #eff1f3;
