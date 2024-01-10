@@ -131,7 +131,6 @@ window.addEventListener("DOMContentLoaded", function() {
    })
    
    function loadProfiles(profiles) {
-      console.log(profiles)
       var list = document.getElementById('profilesList').children[1]
       list.innerHTML = ''
       var offset = new Date().getTimezoneOffset() * 60 * 1000
@@ -679,7 +678,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   clearTimeout(timer)
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('loginScreen').classList.remove('hidden')
-               } else if (result == null) {
+               } else if (result === null) {
                   localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('startScreen').classList.add('hidden')
@@ -708,7 +707,7 @@ window.addEventListener("DOMContentLoaded", function() {
                   clearTimeout(timer)
                   document.getElementById('errorScreen').classList.add('hidden')
                   document.getElementById('loginScreen').classList.remove('hidden')
-               } else if (result == null) {
+               } else if (result === null) {
                   localStorage.lastConnectionError = Date.now()
                   clearTimeout(timer)
                   document.getElementById('selectFoldersScreen').classList.add('hidden')

@@ -162,6 +162,7 @@ XScroll.getScrollHeight = function(obj) {
 }
 
 XScroll.updateThumbPosition = function(obj) {
+   if (obj.children.length < 4) return
    if (XScroll.hasXScroll(obj)) {
       this.private.updateThumbXPosition(obj)
    }
@@ -203,11 +204,13 @@ XScroll.getPosition = function(obj) {
 }
 
 XScroll.getXPosition = function(obj) {
+   if (obj.children.length < 4) return obj.scrollLeft
    return obj.firstElementChild.tagName.toLowerCase() != 'textarea' ?
            - obj.firstElementChild.offsetLeft : obj.firstElementChild.scrollLeft
 }
 
 XScroll.getYPosition = function(obj) {
+   if (obj.children.length < 4) return obj.scrollTop
    return obj.firstElementChild.tagName.toLowerCase() != 'textarea' ?
            - obj.firstElementChild.offsetTop : obj.firstElementChild.scrollTop
 }
@@ -229,6 +232,7 @@ XScroll.private.setYThumb = function(obj, ratio) {
 }
 
 XScroll.private.updateXState = function(obj, enable) {
+   obj.classList.toggle('overflow_x', enable)
    if (obj.children[0].tagName.toLowerCase() == 'textarea' || obj.children[0].contenteditable) {
       obj.children[0].style.bottom = (enable ? obj.children[2].clientHeight : 0) + 'px'
    } else if (obj.getAttribute('content-offset')) {
@@ -243,6 +247,7 @@ XScroll.private.updateXState = function(obj, enable) {
 }
 
 XScroll.private.updateYState = function(obj, enable) {
+   obj.classList.toggle('overflow_y', enable)
    var i = XScroll.hasXScroll(obj) ? 3 : 0
    if (!obj.getAttribute('content-offset') || obj.children[0].tagName.toLowerCase() == 'textarea' || obj.children[0].contenteditable) {
       obj.children[0].style.right = (enable ? obj.children[i+2].clientWidth : 0) + 'px'
@@ -516,6 +521,12 @@ XScroll.init = function(el, force) {
       XScroll.private.checkOverflow(el, c, st)
       setTimeout(function() { XScroll.init(el, force) }, 130)
       return
+   }
+   
+   if (el.configured) {
+      el.style.padding = ''
+      el.style.background = ''
+      el.style.overflow = ''
    }
    
    if (tag != 'textarea') {

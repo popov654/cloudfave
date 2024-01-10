@@ -75,7 +75,7 @@ function loadUserConfig(callback) {
 }
 
 async function getProfiles() {
-   if (!accessToken) return
+   if (!accessToken) return { error: 'Unathorized' }
    try {
       var res = await fetch(origin + '/getProfiles', {
          headers: {
@@ -86,6 +86,25 @@ async function getProfiles() {
       return { status: res.status, data: result.data, error: result.error }
    } catch (e) {
       return null
+   }
+}
+
+function updateProfileName(id, name) {
+   for (var profile of profiles) {
+      if (profile.id == id) {
+         profile.name = name
+      }
+   }
+}
+
+function removeProfile(id) {
+   for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id == id) {
+         profiles.splice(i--, 1)
+      }
+      if (profileId == id) {
+         profileId = profiles[i].id
+      }
    }
 }
 
@@ -181,7 +200,18 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          })
       }
       else if (request.operation == 'renameProfile') {
-         renameProfile(request.data.value).then(() => sendResponse(1))
+         var profile_id = request.data && request.data.profileId || profileId
+         renameProfile(profile_id, request.data.value).then(() => {
+            updateProfileName(profile_id, request.data.value)
+            sendResponse(1)
+         })
+      }
+      else if (request.operation == 'deleteProfile') {
+         var profile_id = request.data && request.data.profileId || profileId
+         deleteProfile(profile_id, sendResponse).then(() => {
+            removeProfile(profile_id)
+            sendResponse(1)
+         })
       }
       else if (request.operation == 'loadProfile') {
          var onFinish = function(result) {
@@ -220,6 +250,9 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          .then(response => {
             sendResponse(response)
          })
+         .catch(e => {
+            sendResponse({ error: 'Connection error' })
+         })
       }
       else if (request.operation == 'restoreBookmark') {
          restoreBookmark(request.data, sendResponse)
@@ -228,7 +261,8 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
          getProfiles().then(res => sendResponse(res))
       }
       else if (request.operation == 'getFolderTree') {
-         loadDirectoryTree(profileId).then(result => {
+         var profile_id = request.data && request.data.profileId || profileId
+         loadDirectoryTree(profile_id).then(result => {
             if (!result) {
                sendResponse(null)
             } else {
@@ -237,6 +271,16 @@ extension.onMessage.addListener(function(request, sender, sendResponse) {
                } else {
                   sendResponse(Tree.getDirectoryStructure({ id: 0, children: result.directories }))
                }
+            }
+         })
+      }
+      else if (request.operation == 'getFolderItems') {
+         var profile_id = request.data && request.data.profileId || profileId
+         loadFolderItems(profile_id, request.data.path || []).then(result => {
+            if (!result) {
+               sendResponse(null)
+            } else {
+               sendResponse(result)
             }
          })
       }
@@ -372,6 +416,18 @@ async function loadData(profile_id) {
    return await res.json()
 }
 
+async function loadFolderItems(profile_id, path, callback) {
+   var res = await fetch(origin + '/' + profile_id + '/items', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json',
+         'Authorization': 'Bearer: ' + accessToken
+      },
+      body: JSON.stringify({ path })
+   })
+   return await res.json()
+}
+
 async function mergeData(profile_id, data) {
    var res = await fetch(origin + '/' + profile_id + '/merge', {
       method: 'POST',
@@ -413,15 +469,31 @@ async function createProfile(name, data) {
    }
 }
 
-async function renameProfile(name) {
+async function renameProfile(profile_id, name) {
    try {
-      var res = await fetch(origin + '/' + profileId + '/rename', {
+      var res = await fetch(origin + '/' + profile_id + '/rename', {
          method: 'POST',
          headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer: ' + accessToken
          },
          body: JSON.stringify({ value: name })
+      })
+      return await res.json()
+   } catch (e) {
+      return null
+   }
+}
+
+async function deleteProfile(profile_id, callback) {
+   try {
+      var res = await fetch(origin + '/' + profile_id + '/delete', {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer: ' + accessToken
+         },
+         body: JSON.stringify({})
       })
       return await res.json()
    } catch (e) {
