@@ -55,8 +55,12 @@ window.addEventListener("DOMContentLoaded", function() {
    
    var profiles = []
    var activeProfile = null
+   var loading = true
+   
+   delete localStorage.lastConnectionError
    
    extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+      if (result !== undefined) loading = false
       if (result && result.data) {
          profiles = result.data
          delete localStorage.lastConnectionError
@@ -72,6 +76,7 @@ window.addEventListener("DOMContentLoaded", function() {
    
    function reloadProfiles() {
       extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+         if (result !== undefined) loading = false
          if (result && result.data) {
             profiles = result.data
             delete localStorage.lastConnectionError
@@ -116,14 +121,15 @@ window.addEventListener("DOMContentLoaded", function() {
             if (c != list.children[1]) {
                c.style.width = '100%'
                c.style.height = '100%'
+               
+               setTimeout(function() {
+                  XScroll.scrollToY(list.children[1], 0)
+                  c.style.width = ''
+                  c.style.height = ''
+                  list.children[1].style.visibility = ''
+                  list.children[1].style.display = 'none'
+               }, 10)
             }
-            setTimeout(function() {
-               XScroll.scrollToY(list.children[1], 0)
-               c.style.width = ''
-               c.style.height = ''
-               list.children[1].style.visibility = ''
-               list.children[1].style.display = 'none'
-            }, 10)
          }, 500)
       }
       list.children[0].innerHTML = ''
@@ -200,6 +206,7 @@ window.addEventListener("DOMContentLoaded", function() {
          container.appendChild(el)
       }
       
+      document.querySelector('#folderContent').innerHTML = ''
       document.querySelector('#folderTree').innerHTML = ''
       
       data.forEach(function(el) {
@@ -223,7 +230,8 @@ window.addEventListener("DOMContentLoaded", function() {
          
          el.appendChild(title)
          el.path = item.url || item.title != '..' ? [...path, item.title] : path.slice(0, -1)
-         el.setAttribute('data-url', item.url)
+         
+         if (item.url) el.setAttribute('data-url', item.url)
          el.setAttribute('title', item.title)
          
          el.classList.toggle('folder', item.title != '..' && !item.url)
@@ -327,6 +335,22 @@ window.addEventListener("DOMContentLoaded", function() {
       })
    }
    */
+   
+   document.getElementById('sync_enabled').checked = !(localStorage.syncEnabled === 'false')
+   var interval = parseInt(Math.floor(parseInt(localStorage.syncInterval) / 60000))
+   document.getElementById('sync_interval').value = !isNaN(interval) ? interval : 5
+   
+   Array.prototype.forEach.call(document.getElementById('navigation').children, function(el) {
+      if (localStorage.accessToken != 'null' && (localStorage.profileId != 'null' || el.getAttribute('data-id') != '2')) {
+         el.classList.remove('disabled')
+         el.removeAttribute('title')
+      } else {
+         if (el.classList.contains('disabled')) {
+            var title = localStorage.accessToken == 'null' ? 'You need to authorize first' : 'You need to select profile first'
+            el.setAttribute('title', title)
+         }
+      }
+   })
 
    var items = document.getElementById('navigation').children
    
@@ -342,39 +366,46 @@ window.addEventListener("DOMContentLoaded", function() {
          var id = this.getAttribute('data-id')
          if (id != '') {
             var error = false
+            var need_profiles = ['3']
             var blocks = document.getElementById('content').children
             for (var i = 0; i < blocks.length; i++) {
                if (blocks[i].id == 'errorScreen') continue
                
                if (blocks[i].getAttribute('data-id') == id) {
-                  if (id == '3' && localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 10000) {
-                     // Show error
-                     blocks[i].style.display = 'none'
-                     error = true
-                     continue
-                  } else if (id == '3' && localStorage.lastConnectionError) {
-                     // Retry to connect
-                     var self = this
-                     document.getElementById('loaderWrap').classList.remove('hidden')
-                     setTimeout(function() {
-                        extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-                           if (result && result.data) {
-                              profiles = result.data
-                              delete localStorage.lastConnectionError
-                           }
-                           if (result === null || result && result.error) {
-                              localStorage.lastConnectionError = Date.now()
-                           }
-                           document.getElementById('loaderWrap').classList.add('hidden')
-                           self.click()
-                        })
-                     }, 50)
-                     return
-                  }
-                  
-                  if (id == '3' && !blocks[i].ready) {
-                     loadProfiles()
-                     blocks[i].ready = true
+                  if (need_profiles.indexOf(id) != -1) {
+                     if (localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 10000) {
+                        // Show error
+                        blocks[i].style.display = 'none'
+                        error = true
+                        continue
+                     } else if (localStorage.lastConnectionError) {
+                        // Retry to connect
+                        var self = this
+                        document.getElementById('loaderWrap').classList.remove('hidden')
+                        setTimeout(function() {
+                           extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+                              if (result && result.data) {
+                                 profiles = result.data
+                                 delete localStorage.lastConnectionError
+                              }
+                              if (result === null || result && result.error) {
+                                 localStorage.lastConnectionError = Date.now()
+                              }
+                              document.getElementById('loaderWrap').classList.add('hidden')
+                              self.click()
+                           })
+                        }, 50)
+                        return
+                     } else if (loading) {
+                        document.getElementById('loaderWrap').classList.remove('hidden')
+                        var self = this
+                        setTimeout(function() { self.click() }, 50)
+                        return
+                     } else if (!loading && !blocks[i].ready) {
+                        document.getElementById('loaderWrap').classList.add('hidden')
+                        loadProfiles()
+                        blocks[i].ready = true
+                     }
                   }
                   blocks[i].style.display = ''
                } else {
@@ -395,27 +426,9 @@ window.addEventListener("DOMContentLoaded", function() {
       }
    }
    
-   browser.storage.local.get(['access_token', 'profile_id', 'sync_enabled', 'sync_interval'], function(result) {
-      document.getElementById('sync_enabled').checked = !(result.sync_enabled === false)
-      var interval = parseInt(Math.floor(parseInt(result.sync_interval) / 60000))
-      document.getElementById('sync_interval').value = !isNaN(interval) ? interval : 5
-      
-      Array.prototype.forEach.call(document.getElementById('navigation').children, function(el) {
-         if (result.access_token && (result.profile_id || el.getAttribute('data-id') != '2')) {
-            el.classList.remove('disabled')
-            el.removeAttribute('title')
-         } else {
-            if (el.classList.contains('disabled')) {
-               var title = !result.access_token ? 'You need to authorize first' : 'You need to select profile first'
-               el.setAttribute('title', title)
-            }
-         }
-      })
-      
-      if (!document.querySelector('#navigation > [data-id="2"]').classList.contains('disabled')) {
-         loadRemoveHistory()
-      }
-   })
+   document.getElementById('sync_enabled').checked = localStorage.syncEnabled !== 'false'
+   var interval = parseInt(Math.floor(parseInt(localStorage.syncInterval) / 60000))
+   document.getElementById('sync_interval').value = !isNaN(interval) ? interval : 5
    
    document.getElementById('sync_enabled').onchange = function() {
       extension.sendMessage({ operation: 'setParameter', data: { name: 'sync_enabled', value: this.checked } })
@@ -450,6 +463,10 @@ window.addEventListener("DOMContentLoaded", function() {
          }, 150)
       })
       item.style.opacity = '0'
+   }
+   
+   if (!document.querySelector('#navigation > [data-id="2"]').classList.contains('disabled')) {
+      loadRemoveHistory()
    }
    
    function loadRemoveHistory() {
