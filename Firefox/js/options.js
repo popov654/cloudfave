@@ -56,8 +56,12 @@ window.addEventListener("DOMContentLoaded", function() {
    
    var profiles = []
    var activeProfile = null
+   var loading = true
+   
+   delete localStorage.lastConnectionError
    
    extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+      if (result !== undefined) loading = false
       if (result && result.data) {
          profiles = result.data
          delete localStorage.lastConnectionError
@@ -73,6 +77,7 @@ window.addEventListener("DOMContentLoaded", function() {
    
    function reloadProfiles() {
       extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+         if (result !== undefined) loading = false
          if (result && result.data) {
             profiles = result.data
             delete localStorage.lastConnectionError
@@ -202,6 +207,7 @@ window.addEventListener("DOMContentLoaded", function() {
          container.appendChild(el)
       }
       
+      document.querySelector('#folderContent').innerHTML = ''
       document.querySelector('#folderTree').innerHTML = ''
       
       data.forEach(function(el) {
@@ -361,39 +367,46 @@ window.addEventListener("DOMContentLoaded", function() {
          var id = this.getAttribute('data-id')
          if (id != '') {
             var error = false
+            var need_profiles = ['3']
             var blocks = document.getElementById('content').children
             for (var i = 0; i < blocks.length; i++) {
                if (blocks[i].id == 'errorScreen') continue
                
                if (blocks[i].getAttribute('data-id') == id) {
-                  if (id == '3' && localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 10000) {
-                     // Show error
-                     blocks[i].style.display = 'none'
-                     error = true
-                     continue
-                  } else if (id == '3' && localStorage.lastConnectionError) {
-                     // Retry to connect
-                     var self = this
-                     document.getElementById('loaderWrap').classList.remove('hidden')
-                     setTimeout(function() {
-                        extension.sendMessage({ operation: 'getProfiles' }, function(result) {
-                           if (result && result.data) {
-                              profiles = result.data
-                              delete localStorage.lastConnectionError
-                           }
-                           if (result === null || result && result.error) {
-                              localStorage.lastConnectionError = Date.now()
-                           }
-                           document.getElementById('loaderWrap').classList.add('hidden')
-                           self.click()
-                        })
-                     }, 50)
-                     return
-                  }
-                  
-                  if (id == '3' && !blocks[i].ready) {
-                     loadProfiles()
-                     blocks[i].ready = true
+                  if (need_profiles.indexOf(id) != -1) {
+                     if (localStorage.lastConnectionError && Date.now() - parseInt(localStorage.lastConnectionError) < 10000) {
+                        // Show error
+                        blocks[i].style.display = 'none'
+                        error = true
+                        continue
+                     } else if (localStorage.lastConnectionError) {
+                        // Retry to connect
+                        var self = this
+                        document.getElementById('loaderWrap').classList.remove('hidden')
+                        setTimeout(function() {
+                           extension.sendMessage({ operation: 'getProfiles' }, function(result) {
+                              if (result && result.data) {
+                                 profiles = result.data
+                                 delete localStorage.lastConnectionError
+                              }
+                              if (result === null || result && result.error) {
+                                 localStorage.lastConnectionError = Date.now()
+                              }
+                              document.getElementById('loaderWrap').classList.add('hidden')
+                              self.click()
+                           })
+                        }, 50)
+                        return
+                     } else if (loading) {
+                        document.getElementById('loaderWrap').classList.remove('hidden')
+                        var self = this
+                        setTimeout(function() { self.click() }, 50)
+                        return
+                     } else if (!loading && !blocks[i].ready) {
+                        document.getElementById('loaderWrap').classList.add('hidden')
+                        loadProfiles()
+                        blocks[i].ready = true
+                     }
                   }
                   blocks[i].style.display = ''
                } else {
